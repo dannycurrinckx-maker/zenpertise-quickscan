@@ -146,8 +146,19 @@
 
 <script>
 (function () {
+  // Backend-URL voor de AI-Q&A-chat en de automatische boekhouding-inlezing (zie /backend).
+  // Leeg = geen live backend geconfigureerd -> alle functies vallen netjes terug op hun
+  // huidige (offline) gedrag. Zet dit op je live URL zodra je het backend gedeployed hebt,
+  // bv. "https://zenpertise-backend.onrender.com" (zie backend/README.md).
   const BACKEND_URL = "https://zenpertise-backend.onrender.com";
+
+  // Sectoren komen uit sectors_master.js (enige bron van waarheid, ook gebruikt
+  // door intake_flow.html en generate_intake_docs.js). Hier is enkel name/icon nodig.
   const SECTORS = ZenpertiseSectors.SECTORS;
+
+  // Balanced Scorecard — 4 perspectieven, 3 vragen elk.
+  // status(value) geeft "green" | "amber" | "red" terug; improve-teksten worden
+  // getoond bij amber/red.
   const BSC = [
     {
       key: "financieel", label: "Financieel",
@@ -251,6 +262,8 @@
   const progressEl = document.getElementById("progress");
   const reportArea = document.getElementById("reportArea");
 
+  // Tekst-naar-spraak — de bot leest zijn vragen/berichten hardop voor.
+  // Uit te zetten via de knop rechtsboven in de header.
   const ttsSupported = "speechSynthesis" in window;
   let voiceEnabled = ttsSupported;
   let dutchVoice = null;
@@ -287,6 +300,15 @@
   let flatQuestions = [];
   let qIndex = 0;
   let answers = {};
+  let chosenPath = null;
+  let whatsappNumber = null;
+
+  // Zet de ruwe antwoorden om naar {vraag, antwoord}-paren (leesbare vraagtekst i.p.v. interne
+  // sleutel) — gedeeld door het AI-Q&A-paneel en de lead-aanvraag, zodat de backend altijd weet
+  // wélke vraag bij welk antwoord hoort.
+  function answeredQaList() {
+    return flatQuestions.map((q) => ({ vraag: q.label, antwoord: answers[q.key] || "" }));
+  }
 
   function renderSectorPicker() {
     sectorPicker.innerHTML = "";
@@ -384,6 +406,8 @@
     return status === "green" ? "Gezond" : status === "amber" ? "Aandachtspunt" : "Kritiek";
   }
 
+  // Numerieke score per perspectief (0-100), zelfde model als in het Word-rapport,
+  // zodat de grafiek en de statuslabels altijd overeenkomen.
   const SCORE_VALUE = { green: 100, amber: 55, red: 15 };
   const HEALTHY_TARGET = 80;
   function scoreColor(score) {
@@ -397,6 +421,8 @@
   }
 
   function svgLabel(text) {
+    // Altijd het eerste woord: voorkomt dat lange labels buiten de grafiek vallen,
+    // vooral bij de links/rechts geplaatste assen van het spiderweb.
     const shortened = text.split(" ")[0];
     return shortened.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
@@ -415,19 +441,23 @@
 
     let inner = "";
 
+    // Rasterringen op 25/50/75/100
     [25, 50, 75, 100].forEach((lvl) => {
       const pts = perspScores.map((_, i) => pointFor(i, lvl).join(",")).join(" ");
       inner += `<polygon points="${pts}" fill="none" stroke="#e2e8e5" stroke-width="1"/>`;
     });
 
+    // Assen
     perspScores.forEach((_, i) => {
       const [x, y] = pointFor(i, 100);
       inner += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#dbe4e1" stroke-width="1"/>`;
     });
 
+    // Doelring op 80 (gestippeld)
     const targetPts = perspScores.map((_, i) => pointFor(i, HEALTHY_TARGET).join(",")).join(" ");
     inner += `<polygon points="${targetPts}" fill="none" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="5,4"/>`;
 
+    // Scorepolygoon (het "spiderweb")
     const scorePts = perspScores.map((p, i) => pointFor(i, p.score).join(",")).join(" ");
     inner += `<polygon points="${scorePts}" fill="#2f6f5e" fill-opacity="0.16" stroke="#2f6f5e" stroke-width="2"/>`;
 
@@ -465,6 +495,7 @@
 
     BSC.forEach((persp) => {
       const statuses = persp.questions.map((q) => q.status(answers[q.key]));
+      // Perspectief-status = de slechtste van de drie
       const worst = statuses.includes("red") ? "red" : statuses.includes("amber") ? "amber" : "green";
       scoreCardsHtml +=
         '<div class="score-card"><div class="persp">' + escapeHtml(persp.label) + '</div>' +
@@ -485,6 +516,9 @@
       improveHtml = '<div class="improve-item">Geen kritieke aandachtspunten gevonden op basis van deze antwoorden — goed bezig.</div>';
     }
 
+    // Financieel perspectief zwak? Dan bieden we aan om een jaarrekening/boekhoud-Excel
+    // aan te leveren voor een preciezere analyse (EBITDA, marges) — zie parse_financials.py.
+    // Nooit fiscaal advies zelf geven, enkel cijfers inlezen en tonen; zie disclaimer.
     const financieelStatuses = BSC.find((p) => p.key === "financieel").questions.map((q) => q.status(answers[q.key]));
     const financieelZwak = financieelStatuses.includes("red") || financieelStatuses.includes("amber");
     const financeUploadHtml = financieelZwak
@@ -507,6 +541,9 @@
         '</div>'
       : "";
 
+    // AI-Q&A-panel — bevestigd aanbod (€39/maand, los abonnement, zie QS · Prijzen).
+    // Toont in de gratis/betaalde flow al de gespreksinterface; of ze effectief werkt
+    // hangt af van BACKEND_URL (zie bovenaan het script).
     const aiQaHtml =
       '<div class="ai-qa-panel">' +
         '<h4>Vraag het aan de Zenpertise AI-adviseur</h4>' +
@@ -568,6 +605,15 @@
     if (financieelZwak) setupFinanceUpload();
     setupAiQaPanel(perspScores);
 
+    // WhatsApp-nummer (voor de "meld dit via WhatsApp"-link na het invullen van de aanvraag) is
+    // geen geheim — vraag het bij het openen van het rapport alvast op, zodat het klaar staat
+    // tegen de gebruiker een pad kiest. Faalt dit (geen backend, geen nummer ingesteld), dan blijft
+    // de WhatsApp-link gewoon weg; er breekt niets.
+    whatsappNumber = null;
+    if (BACKEND_URL) {
+      fetch(BACKEND_URL + "/api/config").then((r) => r.json()).then((d) => { whatsappNumber = d.whatsapp_number || null; }).catch(() => {});
+    }
+
     const restartBtn = document.createElement("button");
     restartBtn.className = "restart-btn";
     restartBtn.style.margin = "0 20px 20px";
@@ -576,6 +622,10 @@
     reportArea.appendChild(restartBtn);
   }
 
+  // Vangt het bestand client-side op. Er is (nog) geen live backend om parse_financials.py
+  // automatisch te draaien vanuit de browser — zodra die er is, vervangt een echte upload
+  // (fetch naar een endpoint) dit bevestigingsbericht. Tot dan verwerkt een Zenpertise-
+  // adviseur het bestand manueel voor de volgende sessie.
   function setupFinanceUpload() {
     const fileInput = document.getElementById("financeFileInput");
     const uploadBtn = document.getElementById("financeUploadBtn");
@@ -593,6 +643,8 @@
       fileInput.disabled = true;
 
       if (!BACKEND_URL) {
+        // Geen live backend geconfigureerd -> huidig (offline) gedrag: bevestigen dat het
+        // bestand ontvangen is, verwerking gebeurt manueel voor de volgende sessie.
         confirmEl.innerHTML =
           '<div class="confirm">"' + escapeHtml(file.name) + '" ontvangen. We lezen de cijfers in en nemen ' +
           'de EBITDA-/margeanalyse mee in je volgende sessie.</div>';
@@ -618,6 +670,9 @@
     });
   }
 
+  // AI-Q&A-paneel: stuurt vragen naar POST /api/qa met sectorcontext + BSC-scores.
+  // Zonder BACKEND_URL toont dit paneel een nette "binnenkort beschikbaar"-melding i.p.v. te
+  // doen alsof het al werkt.
   let aiQaHistory = [];
   function setupAiQaPanel(perspScores) {
     const msgsEl = document.getElementById("aiQaMsgs");
@@ -660,7 +715,7 @@
           body: JSON.stringify({
             sector: SECTORS[currentSector].name,
             scan_scores: scoresObj,
-            answers: answers,
+            scan_answers: answeredQaList(),
             history: aiQaHistory.slice(0, -1),
             message: text,
           }),
@@ -684,17 +739,118 @@
     const confirmEl = document.getElementById("pathConfirm");
     if (!confirmEl) return;
 
+    // Beide paden ontgrendelen het volledige rapport — kiezen is de "betaalmuur"-actie.
     const improveListEl = document.getElementById("improveList");
     const lockOverlayEl = document.getElementById("lockOverlay");
     if (improveListEl) improveListEl.classList.remove("locked");
     if (lockOverlayEl) lockOverlayEl.remove();
 
-    if (path === "consult") {
-      confirmEl.innerHTML =
-        '<div class="path-confirm">Aanvraag genoteerd — rapport hierboven ontgrendeld. Een Zenpertise-adviseur neemt binnen 2 werkdagen contact op om de eerste sessie in te plannen.</div>';
-    } else {
-      confirmEl.innerHTML =
-        '<div class="path-confirm">Genoteerd — rapport hierboven ontgrendeld. Je gaat zelfstandig verder; over 8 weken sturen we automatisch een herinnering voor je volgende Quick Scan.</div>';
+    chosenPath = path;
+
+    // Contactgegevens vragen we pas nu (niet vooraf tijdens de scan) — enkel wie effectief een
+    // pad kiest, laat gegevens achter. Dit stuurt naar /api/submit-lead: dat genereert een PDF
+    // van het rapport en mailt die naar de aanvrager én naar info@danyuzen.com, en levert het
+    // WhatsApp-nummer voor de meldlink hieronder.
+    confirmEl.innerHTML =
+      '<div class="path-confirm">' +
+        '<div style="font-weight:700;margin-bottom:8px;">Rapport hierboven ontgrendeld. Laat je gegevens achter zodat we je het rapport per mail bezorgen' +
+        (path === "consult" ? " en je kunnen terugbellen." : ".") +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">' +
+          '<input type="text" id="leadNaam" placeholder="Naam" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
+          '<input type="email" id="leadEmail" placeholder="E-mailadres" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
+          '<input type="tel" id="leadTelefoon" placeholder="GSM-nummer (optioneel, voor telefonisch contact)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
+        '</div>' +
+        '<button id="leadSubmitBtn" style="background:var(--primary);color:white;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;">Versturen</button>' +
+        '<div id="leadSubmitStatus" style="margin-top:8px;font-size:12.5px;"></div>' +
+      '</div>';
+
+    const submitBtn = document.getElementById("leadSubmitBtn");
+    submitBtn.addEventListener("click", submitLead);
+    document.getElementById("leadTelefoon").addEventListener("keydown", (e) => { if (e.key === "Enter") submitLead(); });
+  }
+
+  // Stuurt naam/e-mail/telefoon + scores + antwoorden naar de backend. Die genereert de PDF en
+  // verstuurt de twee mails (aanvrager + info@danyuzen.com). Zonder BACKEND_URL (offline-modus)
+  // tonen we enkel een bevestigingstekst zonder iets te versturen — consistent met de andere
+  // functies in dit bestand die netjes terugvallen als er geen live server is.
+  async function submitLead() {
+    const naamEl = document.getElementById("leadNaam");
+    const emailEl = document.getElementById("leadEmail");
+    const telefoonEl = document.getElementById("leadTelefoon");
+    const statusEl = document.getElementById("leadSubmitStatus");
+    const btn = document.getElementById("leadSubmitBtn");
+    if (!naamEl || !emailEl || !statusEl || !btn) return;
+
+    const naam = naamEl.value.trim();
+    const email = emailEl.value.trim();
+    const telefoon = telefoonEl.value.trim();
+
+    if (!naam || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      statusEl.textContent = "Vul minstens je naam en een geldig e-mailadres in.";
+      statusEl.style.color = "var(--red)";
+      return;
+    }
+
+    const nextStepText = chosenPath === "consult"
+      ? "Een Zenpertise-adviseur neemt binnen 2 werkdagen contact op."
+      : "Over 8 weken sturen we automatisch een nieuwe scan.";
+
+    if (!BACKEND_URL) {
+      statusEl.textContent = "Genoteerd. " + nextStepText + " (offline-modus — geen live server geconfigureerd, er is dus geen mail verstuurd.)";
+      statusEl.style.color = "#234f42";
+      naamEl.disabled = emailEl.disabled = telefoonEl.disabled = true;
+      btn.style.display = "none";
+      return;
+    }
+
+    btn.disabled = true;
+    statusEl.textContent = "Bezig met versturen...";
+    statusEl.style.color = "#556";
+
+    const scoresObj = {};
+    BSC.forEach((persp) => { scoresObj[persp.label] = perspectiveScore(persp); });
+
+    try {
+      const res = await fetch(BACKEND_URL + "/api/submit-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sector: SECTORS[currentSector].name,
+          path: chosenPath,
+          naam: naam,
+          email: email,
+          telefoon: telefoon || null,
+          scan_scores: scoresObj,
+          scan_answers: answeredQaList(),
+        }),
+      });
+      if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+      const data = await res.json();
+
+      statusEl.textContent = "Aanvraag genoteerd — je ontvangt het rapport per mail. " + nextStepText;
+      statusEl.style.color = "#234f42";
+
+      if (data.whatsapp_number || whatsappNumber) {
+        const number = data.whatsapp_number || whatsappNumber;
+        const waMessage = "Nieuwe Zenpertise Quick Scan-aanvraag: " + naam + " (" + SECTORS[currentSector].name + "praktijk), pad: " +
+          (chosenPath === "consult" ? "Begeleidingstraject" : "Zelfstandig + herscan") + ". Contact: " + email + (telefoon ? ", " + telefoon : "") + ".";
+        const waLink = document.createElement("a");
+        waLink.href = "https://wa.me/" + number + "?text=" + encodeURIComponent(waMessage);
+        waLink.target = "_blank";
+        waLink.rel = "noopener";
+        waLink.textContent = "Meld dit ook via WhatsApp";
+        waLink.style.cssText = "display:inline-block;margin-top:10px;background:#25D366;color:white;border-radius:8px;padding:9px 14px;font-size:13px;text-decoration:none;font-weight:600;";
+        statusEl.appendChild(document.createElement("br"));
+        statusEl.appendChild(waLink);
+      }
+
+      naamEl.disabled = emailEl.disabled = telefoonEl.disabled = true;
+      btn.style.display = "none";
+    } catch (err) {
+      statusEl.textContent = "Versturen mislukt (" + err.message + "). Probeer opnieuw, of neem rechtstreeks contact op.";
+      statusEl.style.color = "var(--red)";
+      btn.disabled = false;
     }
   }
 
@@ -713,6 +869,9 @@
     return d.innerHTML;
   }
 
+  // Spraakinvoer — alternatief voor typen, via de Web Speech API. Werkt in Chrome/
+  // Edge/Safari (webkit-prefix); Firefox desktop ondersteunt dit nog niet, dan
+  // verbergen we de microfoonknop gewoon en blijft typen de enige weg.
   function setupSpeechInput() {
     const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionCtor) {
@@ -778,10 +937,10 @@
         recognition.stop();
         return;
       }
-      if (ttsSupported) window.speechSynthesis.cancel();
+      if (ttsSupported) window.speechSynthesis.cancel(); // voorkom dat de mic de eigen bot-stem opvangt
       inputEl.value = "";
       showHint("");
-      try { recognition.start(); } catch (e) { }
+      try { recognition.start(); } catch (e) { /* al gestart, negeren */ }
     });
   }
 
