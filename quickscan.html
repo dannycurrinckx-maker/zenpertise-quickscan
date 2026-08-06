@@ -761,6 +761,11 @@
           '<input type="email" id="leadEmail" placeholder="E-mailadres" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
           '<input type="tel" id="leadTelefoon" placeholder="GSM-nummer (optioneel, voor telefonisch contact)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
         '</div>' +
+        '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#556;line-height:1.4;margin-bottom:12px;cursor:pointer;">' +
+          '<input type="checkbox" id="leadConsent" style="margin-top:2px;flex-shrink:0;">' +
+          '<span>Ik geef Zenpertise toestemming om mijn naam, e-mailadres' + (path === "consult" ? " en GSM-nummer" : "") + ' te gebruiken om mij het scanrapport te bezorgen' +
+          (path === "consult" ? " en telefonisch contact op te nemen" : "") + '. Zie onze privacyverklaring voor meer info.</span>' +
+        '</label>' +
         '<button id="leadSubmitBtn" style="background:var(--primary);color:white;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;">Versturen</button>' +
         '<div id="leadSubmitStatus" style="margin-top:8px;font-size:12.5px;"></div>' +
       '</div>';
@@ -778,6 +783,7 @@
     const naamEl = document.getElementById("leadNaam");
     const emailEl = document.getElementById("leadEmail");
     const telefoonEl = document.getElementById("leadTelefoon");
+    const consentEl = document.getElementById("leadConsent");
     const statusEl = document.getElementById("leadSubmitStatus");
     const btn = document.getElementById("leadSubmitBtn");
     if (!naamEl || !emailEl || !statusEl || !btn) return;
@@ -788,6 +794,12 @@
 
     if (!naam || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       statusEl.textContent = "Vul minstens je naam en een geldig e-mailadres in.";
+      statusEl.style.color = "var(--red)";
+      return;
+    }
+
+    if (!consentEl || !consentEl.checked) {
+      statusEl.textContent = "Vink het toestemmingsvakje aan om verder te gaan.";
       statusEl.style.color = "var(--red)";
       return;
     }
