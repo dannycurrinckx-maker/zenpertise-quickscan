@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zenpertise Quick Scan — prototype</title>
+<style>
+  :root {
+    --primary: #2f6f5e; --primary-dark: #234f42; --bg: #f4f7f6;
+    --bot-bubble: #eef3f1; --user-bubble: #2f6f5e; --border: #dbe4e1;
+    --green: #2e8b57; --amber: #c98a2c; --red: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:#1f2d29; display:flex; justify-content:center; padding:24px; }
+  .app { width:100%; max-width:760px; }
+  .card { background:white; border-radius:14px; box-shadow:0 2px 14px rgba(0,0,0,0.06); border:1px solid var(--border); overflow:hidden; display:flex; flex-direction:column; }
+  .header { background:var(--primary); color:white; padding:16px 20px; position:relative; }
+  .header h1 { font-size:17px; margin:0 0 2px; padding-right:34px; }
+  .header p { font-size:12.5px; margin:0; opacity:0.9; padding-right:34px; }
+  .voice-toggle { position:absolute; top:14px; right:14px; width:28px; height:28px; border-radius:50%; border:1px solid rgba(255,255,255,0.5); background:rgba(255,255,255,0.12); color:white; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+  .voice-toggle:hover { background:rgba(255,255,255,0.22); }
+  .voice-toggle.muted { opacity:0.6; }
+  .sector-picker { padding:20px; display:flex; flex-wrap:wrap; gap:10px; }
+  .sector-btn { flex:1 1 45%; border:1px solid var(--border); background:white; border-radius:10px; padding:16px 12px; text-align:left; cursor:pointer; font-size:14px; }
+  .sector-btn:hover { border-color:var(--primary); background:#eaf3f0; }
+  .sector-btn .icon { font-size:22px; display:block; margin-bottom:6px; }
+  .sector-btn .name { font-weight:700; display:block; }
+  .sector-btn .desc { font-size:12px; color:#667; }
+  .messages { flex:1; padding:16px; height:420px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+  .msg { max-width:85%; padding:10px 13px; border-radius:14px; font-size:14px; line-height:1.45; white-space:pre-wrap; }
+  .msg.bot { align-self:flex-start; background:var(--bot-bubble); border-bottom-left-radius:4px; }
+  .msg.user { align-self:flex-end; background:var(--user-bubble); color:white; border-bottom-right-radius:4px; }
+  .msg.perspective { align-self:center; background:#e7edea; color:#234f42; font-weight:700; font-size:12.5px; text-transform:uppercase; letter-spacing:0.04em; padding:6px 14px; border-radius:999px; }
+  .progress { padding:0 16px 8px; font-size:11.5px; color:#778; }
+  .quick-replies { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 12px; }
+  .quick-replies button { border:1px solid var(--primary); background:white; color:var(--primary); border-radius:999px; padding:7px 13px; font-size:13px; cursor:pointer; }
+  .quick-replies button:hover { background:#eaf3f0; }
+  .input-row { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--border); }
+  .input-row input { flex:1; padding:10px 13px; border-radius:10px; border:1px solid var(--border); font-size:14px; }
+  .input-row button { background:var(--primary); color:white; border:none; border-radius:10px; padding:0 18px; font-size:14px; cursor:pointer; }
+  .input-row button:hover { background:var(--primary-dark); }
+  .input-row button.mic-btn { background:white; color:var(--primary); border:1px solid var(--border); padding:0 14px; font-size:16px; }
+  .input-row button.mic-btn:hover { background:#eaf3f0; }
+  .input-row button.mic-btn.listening { background:var(--red); color:white; border-color:var(--red); animation:mic-pulse 1.2s infinite; }
+  @keyframes mic-pulse { 0%{ box-shadow:0 0 0 0 rgba(192,57,43,0.45); } 70%{ box-shadow:0 0 0 9px rgba(192,57,43,0); } 100%{ box-shadow:0 0 0 0 rgba(192,57,43,0); } }
+  .mic-hint { padding:0 16px 4px; font-size:11px; color:#c0392b; }
+
+  .report { padding:20px; }
+  .report h2 { font-size:16px; margin:0 0 4px; color:var(--primary-dark); }
+  .report .sub { font-size:12.5px; color:#667; margin-bottom:16px; }
+  .bsc-chart { border:1px solid var(--border); border-radius:12px; padding:10px 8px 4px; margin-bottom:16px; background:white; }
+  .score-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+  .score-card { border:1px solid var(--border); border-radius:10px; padding:14px; }
+  .score-card .persp { font-size:12px; color:#667; text-transform:uppercase; letter-spacing:0.03em; }
+  .score-card .badge { display:inline-block; margin-top:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; color:white; }
+  .badge.green { background:var(--green); }
+  .badge.amber { background:var(--amber); }
+  .badge.red { background:var(--red); }
+  .improve-list { border-top:1px solid var(--border); padding-top:14px; }
+  .improve-list h3 { font-size:14px; margin:0 0 10px; }
+  .improve-item { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .improve-item:last-child { border-bottom:none; }
+  .improve-item .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+  .improve-item .dot.amber { background:var(--amber); }
+  .improve-item .dot.red { background:var(--red); }
+  .restart-btn { margin:16px 0 0; background:white; border:1px solid var(--primary); color:var(--primary); border-radius:10px; padding:9px 14px; font-size:13px; cursor:pointer; }
+
+  .next-steps { border-top:1px solid var(--border); padding-top:18px; margin-top:18px; }
+  .next-steps h3 { font-size:14px; margin:0 0 4px; }
+  .next-steps .sub { font-size:12.5px; color:#667; margin-bottom:14px; }
+  .path-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px) { .path-grid { grid-template-columns:1fr; } }
+  .path-card { border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; flex-direction:column; }
+  .path-card.recommended { border-color:var(--primary); box-shadow:0 0 0 1px var(--primary); }
+  .path-card .path-tag { font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--primary); font-weight:700; margin-bottom:6px; }
+  .path-card h4 { font-size:14.5px; margin:0 0 6px; }
+  .path-card p { font-size:12.5px; color:#556; margin:0 0 10px; line-height:1.5; flex:1; }
+  .path-card .price { font-size:13px; font-weight:700; color:var(--primary-dark); margin-bottom:10px; }
+  .path-card button { background:var(--primary); color:white; border:none; border-radius:8px; padding:9px 12px; font-size:13px; cursor:pointer; }
+  .path-card button:hover { background:var(--primary-dark); }
+  .path-card.secondary button { background:white; color:var(--primary); border:1px solid var(--primary); }
+  .path-card.secondary button:hover { background:#eaf3f0; }
+  .path-confirm { margin-top:14px; padding:12px 14px; background:#eef3f1; border-radius:10px; font-size:13px; color:#234f42; }
+
+  .finance-upload { border:1px dashed var(--border); border-radius:12px; padding:16px; margin-top:16px; background:#fbfaf7; }
+  .finance-upload h4 { font-size:13.5px; margin:0 0 4px; }
+  .finance-upload p { font-size:12.5px; color:#556; margin:0 0 10px; line-height:1.5; }
+  .finance-upload .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .finance-upload input[type=file] { font-size:12.5px; }
+  .finance-upload button { background:var(--primary); color:white; border:none; border-radius:8px; padding:8px 14px; font-size:12.5px; cursor:pointer; }
+  .finance-upload button:disabled { background:#aab; cursor:not-allowed; }
+  .finance-upload .disclaimer { font-size:11px; color:#889; margin-top:8px; line-height:1.4; }
+  .finance-upload .confirm { margin-top:10px; padding:9px 12px; background:#eef3f1; border-radius:8px; font-size:12.5px; color:#234f42; }
+
+  .ai-qa-panel { border:1px solid var(--border); border-radius:12px; padding:16px; margin-top:16px; background:white; }
+  .ai-qa-panel h4 { font-size:13.5px; margin:0 0 4px; }
+  .ai-qa-panel p.sub { font-size:12.5px; color:#556; margin:0 0 10px; line-height:1.5; }
+  .ai-qa-panel .ai-msgs { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .ai-qa-panel .ai-msg { font-size:12.5px; padding:8px 11px; border-radius:10px; max-width:85%; line-height:1.4; }
+  .ai-qa-panel .ai-msg.user { align-self:flex-end; background:var(--user-bubble); color:white; }
+  .ai-qa-panel .ai-msg.bot { align-self:flex-start; background:var(--bot-bubble); }
+  .ai-qa-panel .row { display:flex; gap:8px; }
+  .ai-qa-panel input[type=text] { flex:1; padding:9px 12px; border-radius:8px; border:1px solid var(--border); font-size:13px; }
+  .ai-qa-panel button { background:var(--primary); color:white; border:none; border-radius:8px; padding:0 16px; font-size:13px; cursor:pointer; }
+  .ai-qa-panel button:disabled { background:#aab; cursor:not-allowed; }
+  .ai-qa-panel .unavailable { font-size:12px; color:#889; font-style:italic; }
+  .ai-qa-panel .price-note { font-size:11px; color:#889; margin-top:8px; }
+  .ai-qa-panel .ai-disclosure { font-size:12px; color:#7a5b00; background:#fff8e6; border:1px solid #f0dfa0; border-radius:8px; padding:9px 11px; margin-bottom:10px; line-height:1.45; }
+
+  .improve-wrapper { position:relative; }
+  .improve-list.locked { filter:blur(5px); user-select:none; pointer-events:none; }
+  .lock-overlay {
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px; background:linear-gradient(to bottom, rgba(244,247,246,0.35), rgba(244,247,246,0.92) 55%);
+  }
+  .lock-overlay .lock-icon { font-size:26px; margin-bottom:8px; }
+  .lock-overlay p { font-size:13px; color:#234f42; max-width:300px; margin:0; font-weight:600; line-height:1.4; }
+  .lock-overlay .lock-sub { font-weight:400; color:#556; font-size:12px; margin-top:4px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <div class="header">
+      <button id="voiceToggle" class="voice-toggle" type="button" title="Bot spreekt vragen uit — klik om te dempen" aria-label="Spraakweergave aan/uit">🔊</button>
+      <h1>Zenpertise Quick Scan</h1>
+      <p id="headerSub">Kies je praktijktype om te starten — 12 vragen, 4 minuten.</p>
+    </div>
+    <div id="sectorPicker" class="sector-picker"></div>
+    <div id="chatArea" style="display:none;">
+      <div class="progress" id="progress"></div>
+      <div class="messages" id="messages"></div>
+      <div class="quick-replies" id="quickReplies"></div>
+      <div class="mic-hint" id="micHint" style="display:none;"></div>
+      <div class="input-row" id="inputRow">
+        <input type="text" id="userInput" placeholder="Typ hier uw antwoord, of gebruik de microfoon..." autocomplete="off">
+        <button id="micBtn" class="mic-btn" type="button" title="Spreek je antwoord in" aria-label="Spraakinvoer">🎤</button>
+        <button id="sendBtn">Verstuur</button>
+      </div>
+    </div>
+    <div id="reportArea" style="display:none;"></div>
+  </div>
+</div>
+
+<script src="sectors_master.js"></script>
+
+<script>
+(function () {
+  const BACKEND_URL = "https://zenpertise-backend.onrender.com";
+  const SECTORS = ZenpertiseSectors.SECTORS;
+  const BSC = [
+    {
+      key: "financieel", label: "Financieel",
+      questions: [
+        {
+          key: "bezetting", label: "Wat is de gemiddelde bezettingsgraad van je agenda (% ingevulde behandelslots)? (getal, bv. 82)",
+          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n >= 85) return "green"; if (n >= 70) return "amber"; return "red"; },
+          improve: "Verhoog de bezettingsgraad: analyseer piek- en daluren, en overweeg automatische herinneringen om no-shows te verlagen die slots vrijmaken.",
+        },
+        {
+          key: "openstaand", label: "Welk percentage van je facturen staat langer dan 30 dagen open? (getal, bv. 8)",
+          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 5) return "green"; if (n <= 15) return "amber"; return "red"; },
+          improve: "Zet een vast opvolgproces op voor openstaande facturen (automatische herinnering na 14 en 30 dagen) om betalingsachterstand te verlagen.",
+        },
+        {
+          key: "omzetTrend", label: "Is de omzet de afgelopen 6 maanden gestegen, gelijk gebleven of gedaald?",
+          quick: ["Gestegen", "Gelijk gebleven", "Gedaald"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("gestegen")) return "green"; if (s.startsWith("gelijk")) return "amber"; return "red"; },
+          improve: "Breng in kaart welke behandelingen/diensten het meest bijdragen aan de omzetdaling en bekijk gericht upselling- of retentie-acties.",
+        },
+      ],
+    },
+    {
+      key: "patient", label: "Klant",
+      questions: [
+        {
+          key: "wachttijd", label: "Wat is de gemiddelde wachttijd tussen aanvraag en eerste afspraak, in dagen? (getal)",
+          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 3) return "green"; if (n <= 10) return "amber"; return "red"; },
+          improve: "Verkort de wachttijd tot de eerste afspraak: overweeg een wachtlijst-automatisering die vrijgekomen slots meteen aanbiedt aan wachtenden.",
+        },
+        {
+          key: "noShow", label: "Welk percentage van de afspraken is een no-show (patiënt komt niet opdagen)? (getal)",
+          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 5) return "green"; if (n <= 12) return "amber"; return "red"; },
+          improve: "Verlaag no-shows met automatische afspraakherinneringen (sms/WhatsApp) 24-48u op voorhand.",
+        },
+        {
+          key: "tevredenheid", label: "Hoe vaak meet je patiënttevredenheid?",
+          quick: ["Structureel (elke patiënt)", "Af en toe", "Nooit"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("structureel")) return "green"; if (s.startsWith("af en toe")) return "amber"; return "red"; },
+          improve: "Voer een structurele, korte feedbackvraag in na elke afspraak (bv. 1 vraag per sms/mail) zodat je trends vroeg opmerkt.",
+        },
+      ],
+    },
+    {
+      key: "processen", label: "Interne Processen",
+      questions: [
+        {
+          key: "digitalisering", label: "Hoe verloopt je dossierbeheer/planning?",
+          quick: ["Volledig digitaal", "Deels digitaal, deels papier", "Grotendeels papier"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("volledig")) return "green"; if (s.startsWith("deels")) return "amber"; return "red"; },
+          improve: "Digitaliseer resterende papieren processen (planning/dossiers) — dat is de basis voor elke verdere automatisering.",
+        },
+        {
+          key: "adminUren", label: "Hoeveel uur per week gaat naar administratie die ook geautomatiseerd zou kunnen worden? (getal)",
+          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 2) return "green"; if (n <= 6) return "amber"; return "red"; },
+          improve: "Automatiseer herhaalde administratieve taken (herinneringen, facturatie, intake) — dit is precies waar een AI-assistent tijd vrijmaakt.",
+        },
+        {
+          key: "gemisteOproepFlow", label: "Is er een vast proces voor wat te doen bij een gemiste oproep of last-minute annulering?",
+          quick: ["Ja, vast proces", "Ad hoc", "Nee"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja")) return "green"; if (s.startsWith("ad hoc")) return "amber"; return "red"; },
+          improve: "Zet een vast opvangproces op voor gemiste oproepen (bv. de intake-widget die we al bouwden) zodat geen enkel verzoek verloren gaat.",
+        },
+      ],
+    },
+    {
+      key: "team", label: "Leren & Groei",
+      questions: [
+        {
+          key: "bijscholing", label: "Hoe vaak krijgt het team bijscholing of training?",
+          quick: ["Regelmatig (min. 1x/jaar gepland)", "Soms", "Zelden of nooit"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("regelmatig")) return "green"; if (s.startsWith("soms")) return "amber"; return "red"; },
+          improve: "Plan structurele bijscholingsmomenten in (bv. jaarlijks per teamlid) — dit voorkomt kennisveroudering en verhoogt retentie van personeel.",
+        },
+        {
+          key: "verloop", label: "Hoe zou je het personeelsverloop van het afgelopen jaar omschrijven?",
+          quick: ["Stabiel team", "Enkele wissels", "Veel verloop"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("stabiel")) return "green"; if (s.startsWith("enkele")) return "amber"; return "red"; },
+          improve: "Onderzoek de oorzaak van het verloop via korte exitgesprekken en een teampuls-bevraging.",
+        },
+        {
+          key: "teamTevredenheid", label: "Hoe tevreden is het team gemiddeld? (schaal 1-5)",
+          quick: ["5", "4", "3", "2", "1"],
+          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n >= 4) return "green"; if (n === 3) return "amber"; return "red"; },
+          improve: "Zet een korte, terugkerende teampuls-survey op om vroeg signalen van dalende tevredenheid op te vangen.",
+        },
+      ],
+    },
+  ];
+
+  const sectorPicker = document.getElementById("sectorPicker");
+  const headerSub = document.getElementById("headerSub");
+  const chatArea = document.getElementById("chatArea");
+  const messagesEl = document.getElementById("messages");
+  const quickRepliesEl = document.getElementById("quickReplies");
+  const inputEl = document.getElementById("userInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const micBtn = document.getElementById("micBtn");
+  const micHint = document.getElementById("micHint");
+  const voiceToggle = document.getElementById("voiceToggle");
+  const progressEl = document.getElementById("progress");
+  const reportArea = document.getElementById("reportArea");
+
+  const ttsSupported = "speechSynthesis" in window;
+  let voiceEnabled = ttsSupported;
+  let dutchVoice = null;
+  if (ttsSupported) {
+    function pickDutchVoice() {
+      const voices = window.speechSynthesis.getVoices();
+      dutchVoice = voices.find((v) => v.lang === "nl-BE") || voices.find((v) => v.lang && v.lang.startsWith("nl")) || null;
+    }
+    pickDutchVoice();
+    window.speechSynthesis.onvoiceschanged = pickDutchVoice;
+  } else {
+    voiceToggle.style.display = "none";
+  }
+
+  function speak(text) {
+    if (!ttsSupported || !voiceEnabled || !text) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "nl-BE";
+    if (dutchVoice) utter.voice = dutchVoice;
+    utter.rate = 1;
+    window.speechSynthesis.speak(utter);
+  }
+
+  voiceToggle.addEventListener("click", () => {
+    voiceEnabled = !voiceEnabled;
+    voiceToggle.textContent = voiceEnabled ? "🔊" : "🔇";
+    voiceToggle.classList.toggle("muted", !voiceEnabled);
+    voiceToggle.title = voiceEnabled ? "Bot spreekt vragen uit — klik om te dempen" : "Spraakweergave gedempt — klik om aan te zetten";
+    if (!voiceEnabled) window.speechSynthesis.cancel();
+  });
+
+  let currentSector = null;
+  let flatQuestions = [];
+  let qIndex = 0;
+  let answers = {};
+
+  function renderSectorPicker() {
+    sectorPicker.innerHTML = "";
+    Object.keys(SECTORS).forEach((key) => {
+      const s = SECTORS[key];
+      const btn = document.createElement("button");
+      btn.className = "sector-btn";
+      btn.innerHTML = '<span class="icon">' + s.icon + '</span><span class="name">' + s.name + '</span><span class="desc">Quick scan starten</span>';
+      btn.onclick = () => startScan(key);
+      sectorPicker.appendChild(btn);
+    });
+  }
+
+  function startScan(key) {
+    currentSector = key;
+    answers = {};
+    qIndex = 0;
+    flatQuestions = [];
+    BSC.forEach((persp) => persp.questions.forEach((q) => flatQuestions.push({ perspKey: persp.key, perspLabel: persp.label, ...q })));
+
+    sectorPicker.style.display = "none";
+    reportArea.style.display = "none";
+    chatArea.style.display = "block";
+    messagesEl.innerHTML = "";
+    headerSub.textContent = SECTORS[key].name + " — quick scan loopt";
+    botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. Ik ga voor jouw sector naar de juiste gegevens en overloop 12 korte vragen, verdeeld over 4 aandachtsgebieden.");
+    setTimeout(askNext, 400);
+  }
+
+  function addMessage(text, cls) {
+    const div = document.createElement("div");
+    div.className = "msg " + cls;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function botSay(text, delay) {
+    return new Promise((resolve) => setTimeout(() => { addMessage(text, "bot"); speak(text); resolve(); }, delay || 300));
+  }
+
+  function setQuickReplies(options) {
+    quickRepliesEl.innerHTML = "";
+    (options || []).forEach((opt) => {
+      const btn = document.createElement("button");
+      btn.textContent = opt;
+      btn.onclick = () => handleAnswer(opt);
+      quickRepliesEl.appendChild(btn);
+    });
+  }
+
+  function updateProgress() {
+    progressEl.textContent = "Vraag " + Math.min(qIndex + 1, flatQuestions.length) + " van " + flatQuestions.length;
+  }
+
+  let lastPerspective = null;
+  async function askNext() {
+    if (qIndex >= flatQuestions.length) {
+      showReport();
+      return;
+    }
+    updateProgress();
+    const q = flatQuestions[qIndex];
+    if (q.perspKey !== lastPerspective) {
+      lastPerspective = q.perspKey;
+      const div = document.createElement("div");
+      div.className = "msg perspective";
+      div.textContent = q.perspLabel;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    await botSay(q.label);
+    setQuickReplies(q.quick);
+  }
+
+  async function handleAnswer(rawText) {
+    const text = (rawText || "").trim();
+    if (!text) return;
+    addMessage(text, "user");
+    setQuickReplies([]);
+    inputEl.value = "";
+    if (micHint) micHint.style.display = "none";
+
+    const q = flatQuestions[qIndex];
+    answers[q.key] = text;
+    qIndex++;
+    await askNext();
+  }
+
+  function badgeClass(status) {
+    return status === "green" ? "green" : status === "amber" ? "amber" : "red";
+  }
+  function badgeLabel(status) {
+    return status === "green" ? "Gezond" : status === "amber" ? "Aandachtspunt" : "Kritiek";
+  }
+
+  const SCORE_VALUE = { green: 100, amber: 55, red: 15 };
+  const HEALTHY_TARGET = 80;
+  function scoreColor(score) {
+    if (score >= 80) return "green";
+    if (score >= 50) return "amber";
+    return "red";
+  }
+  function perspectiveScore(persp) {
+    const vals = persp.questions.map((q) => SCORE_VALUE[q.status(answers[q.key])]);
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+
+  function svgLabel(text) {
+    const shortened = text.split(" ")[0];
+    return shortened.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function buildBscRadarSvg(perspScores) {
+    const size = 380, cx = size / 2, cy = size / 2 + 4, R = 108;
+    const N = perspScores.length;
+    const hex = { green: "#2e8b57", amber: "#c98a2c", red: "#c0392b" };
+
+    function angleFor(i) { return -Math.PI / 2 + i * (2 * Math.PI / N); }
+    function pointFor(i, value) {
+      const r = (value / 100) * R;
+      const a = angleFor(i);
+      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    }
+
+    let inner = "";
+
+    [25, 50, 75, 100].forEach((lvl) => {
+      const pts = perspScores.map((_, i) => pointFor(i, lvl).join(",")).join(" ");
+      inner += `<polygon points="${pts}" fill="none" stroke="#e2e8e5" stroke-width="1"/>`;
+    });
+
+    perspScores.forEach((_, i) => {
+      const [x, y] = pointFor(i, 100);
+      inner += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#dbe4e1" stroke-width="1"/>`;
+    });
+
+    const targetPts = perspScores.map((_, i) => pointFor(i, HEALTHY_TARGET).join(",")).join(" ");
+    inner += `<polygon points="${targetPts}" fill="none" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="5,4"/>`;
+
+    const scorePts = perspScores.map((p, i) => pointFor(i, p.score).join(",")).join(" ");
+    inner += `<polygon points="${scorePts}" fill="#2f6f5e" fill-opacity="0.16" stroke="#2f6f5e" stroke-width="2"/>`;
+
+    perspScores.forEach((p, i) => {
+      const [x, y] = pointFor(i, p.score);
+      const color = hex[scoreColor(p.score)];
+      inner += `<circle cx="${x}" cy="${y}" r="4.5" fill="${color}" stroke="white" stroke-width="1.5"/>`;
+
+      const a = angleFor(i);
+      const cosA = Math.cos(a);
+      const anchor = Math.abs(cosA) < 0.3 ? "middle" : (cosA > 0 ? "start" : "end");
+      const [lx, ly] = pointFor(i, 122);
+      inner += `<text x="${lx}" y="${ly}" font-size="11.5" font-weight="700" text-anchor="${anchor}" fill="#334">${svgLabel(p.label)}</text>`;
+
+      const deficitText = p.score < HEALTHY_TARGET ? " (-" + (HEALTHY_TARGET - p.score) + ")" : "";
+      const [sx, sy] = pointFor(i, Math.min(p.score + 13, 108));
+      inner += `<text x="${sx}" y="${sy}" font-size="11" font-weight="700" text-anchor="middle" fill="${color}">${p.score}${deficitText}</text>`;
+    });
+
+    const [tgx, tgy] = pointFor(0, HEALTHY_TARGET);
+    inner += `<text x="${tgx + 8}" y="${tgy - 6}" font-size="10" font-weight="700" fill="#2f6f5e">Doel: gezond (${HEALTHY_TARGET})</text>`;
+
+    return '<svg viewBox="0 0 ' + size + " " + (size + 8) + '" width="100%" height="auto" role="img" aria-label="BSC-scores per perspectief (spiderweb)">' + inner + "</svg>";
+  }
+
+  function showReport() {
+    chatArea.style.display = "none";
+    reportArea.style.display = "block";
+
+    const perspScores = BSC.map((persp) => ({ label: persp.label, score: perspectiveScore(persp) }));
+    const chartSvg = buildBscRadarSvg(perspScores);
+
+    let scoreCardsHtml = "";
+    let improveHtml = "";
+
+    BSC.forEach((persp) => {
+      const statuses = persp.questions.map((q) => q.status(answers[q.key]));
+      const worst = statuses.includes("red") ? "red" : statuses.includes("amber") ? "amber" : "green";
+      scoreCardsHtml +=
+        '<div class="score-card"><div class="persp">' + escapeHtml(persp.label) + '</div>' +
+        '<span class="badge ' + badgeClass(worst) + '">' + badgeLabel(worst) + '</span></div>';
+
+      persp.questions.forEach((q) => {
+        const st = q.status(answers[q.key]);
+        if (st !== "green") {
+          improveHtml +=
+            '<div class="improve-item"><div class="dot ' + badgeClass(st) + '"></div>' +
+            '<div><strong>' + escapeHtml(persp.label) + ':</strong> ' + escapeHtml(q.improve) + '</div></div>';
+        }
+      });
+    });
+
+    const hasImprovements = !!improveHtml;
+    if (!improveHtml) {
+      improveHtml = '<div class="improve-item">Geen kritieke aandachtspunten gevonden op basis van deze antwoorden — goed bezig.</div>';
+    }
+
+    const financieelStatuses = BSC.find((p) => p.key === "financieel").questions.map((q) => q.status(answers[q.key]));
+    const financieelZwak = financieelStatuses.includes("red") || financieelStatuses.includes("amber");
+    const financeUploadHtml = financieelZwak
+      ? '<div class="finance-upload">' +
+          '<h4>Preciezere financiële analyse (optioneel)</h4>' +
+          '<p>Je financiële score wijst op aandachtspunten. Wil je een preciezere EBITDA- en margeanalyse ' +
+          '(in plaats van de ruwe inschatting hierboven)? Lever je jaarrekening (PDF) of een boekhoud-Excel aan — ' +
+          'wij lezen de cijfers in en nemen de analyse mee in je volgende sessie.</p>' +
+          '<div class="row">' +
+            '<input type="file" id="financeFileInput" accept=".pdf,.xlsx,.xlsm">' +
+            '<button id="financeUploadBtn" disabled>Aanleveren</button>' +
+          '</div>' +
+          '<div id="financeUploadConfirm"></div>' +
+          '<div class="disclaimer">We tonen enkel de cijfers zoals aangeleverd, plus eenvoudige ratio\'s (EBITDA-marge, kosten/omzet) — ' +
+          'geen fiscaal of boekhoudkundig advies. Zenpertise is geen erkend boekhoudkantoor; voor interpretatie of ' +
+          'optimalisatie verwijzen we door naar de boekhouder van je praktijk. ' +
+          '<strong>Lever enkel de jaarrekening of boekhoud-Excel van de praktijk zelf aan — nooit patiëntendossiers, ' +
+          'medische gegevens of andere persoonsgegevens van patiënten/cliënten.</strong> Het bestand wordt automatisch ' +
+          'ingelezen door een AI-systeem en niet permanent bewaard na verwerking.</div>' +
+        '</div>'
+      : "";
+
+    const aiQaHtml =
+      '<div class="ai-qa-panel">' +
+        '<h4>Vraag het aan de Zenpertise AI-adviseur</h4>' +
+        '<p class="sub">24/7 beschikbaar voor vragen over jouw scanresultaten en de toolkit — geen exacte ' +
+        'vragenlijst of scoringsformules, wel duiding en concrete vervolgstappen.</p>' +
+        '<div class="ai-disclosure">⚠️ Je chat hier met een AI-systeem (aangedreven door Claude van Anthropic), ' +
+        'niet met een medewerker van Zenpertise. Antwoorden worden automatisch gegenereerd, kunnen fouten bevatten ' +
+        'en vormen geen fiscaal, medisch of juridisch advies. Voer hier geen patiëntgegevens, medische dossiers of ' +
+        'andere gevoelige persoonsgegevens in — enkel vragen over je eigen praktijkvoering en scanresultaten.</div>' +
+        '<div class="ai-msgs" id="aiQaMsgs"></div>' +
+        '<div class="row">' +
+          '<input type="text" id="aiQaInput" placeholder="Bv. Waarom scoort Financieel amber?">' +
+          '<button id="aiQaSendBtn">Verstuur</button>' +
+        '</div>' +
+        '<div class="price-note">Onderdeel van het AI-Q&A-abonnement (€39/maand) — tijdens deze sessie gratis uit te proberen.</div>' +
+      '</div>';
+
+    reportArea.innerHTML =
+      '<div class="report">' +
+        '<h2>Quick Scan-rapport — ' + escapeHtml(SECTORS[currentSector].name) + 'praktijk</h2>' +
+        '<div class="sub">Score per Balanced Scorecard-perspectief. De concrete verbeterpunten en oplossingen zitten in het volledige rapport.</div>' +
+        '<div class="bsc-chart">' + chartSvg + '</div>' +
+        '<div class="score-grid">' + scoreCardsHtml + '</div>' +
+        '<div class="improve-wrapper">' +
+          '<div class="improve-list' + (hasImprovements ? ' locked' : '') + '" id="improveList"><h3>Verbeterpunten</h3>' + improveHtml + '</div>' +
+          (hasImprovements
+            ? '<div class="lock-overlay" id="lockOverlay"><div class="lock-icon">🔒</div><p>De concrete verbeterpunten en gekoppelde oplossingen zitten in het volledige rapport.<span class="lock-sub"> Kies hieronder hoe je verder wil om ze te ontgrendelen.</span></p></div>'
+            : '') +
+        '</div>' +
+        '<div class="next-steps">' +
+          '<h3>Hoe wil je hiermee verder?</h3>' +
+          '<div class="sub">Kies wat het best past — je kan later altijd wisselen.</div>' +
+          '<div class="path-grid">' +
+            '<div class="path-card recommended">' +
+              '<div class="path-tag">Persoonlijke begeleiding</div>' +
+              '<h4>Begeleidingstraject</h4>' +
+              '<p>3 sessies van 1,5u met een Zenpertise-adviseur, op maat van jouw scanresultaat. Directe opvolging en bijsturing op wat blijkt vast te lopen.</p>' +
+              '<div class="price">€650 (3 sessies)</div>' +
+              '<button data-path="consult">Consult aanvragen</button>' +
+            '</div>' +
+            '<div class="path-card secondary">' +
+              '<div class="path-tag">Volledig digitaal</div>' +
+              '<h4>Zelfstandig, met herscan</h4>' +
+              '<p>Je gaat zelf aan de slag met de verbeterpunten. Na 8 weken sturen we automatisch een nieuwe scan zodat je vooruitgang zichtbaar wordt.</p>' +
+              '<div class="price">€120 (herscan inbegrepen)</div>' +
+              '<button data-path="digital">Kies digitaal + herscan</button>' +
+            '</div>' +
+          '</div>' +
+          '<div id="pathConfirm"></div>' +
+          financeUploadHtml +
+          aiQaHtml +
+        '</div>' +
+      '</div>';
+
+    reportArea.querySelectorAll(".path-card button").forEach((btn) => {
+      btn.addEventListener("click", () => choosePath(btn.getAttribute("data-path")));
+    });
+
+    if (financieelZwak) setupFinanceUpload();
+    setupAiQaPanel(perspScores);
+
+    const restartBtn = document.createElement("button");
+    restartBtn.className = "restart-btn";
+    restartBtn.style.margin = "0 20px 20px";
+    restartBtn.textContent = "← Nieuwe scan starten";
+    restartBtn.onclick = reset;
+    reportArea.appendChild(restartBtn);
+  }
+
+  function setupFinanceUpload() {
+    const fileInput = document.getElementById("financeFileInput");
+    const uploadBtn = document.getElementById("financeUploadBtn");
+    const confirmEl = document.getElementById("financeUploadConfirm");
+    if (!fileInput || !uploadBtn) return;
+
+    fileInput.addEventListener("change", () => {
+      uploadBtn.disabled = !fileInput.files.length;
+    });
+
+    uploadBtn.addEventListener("click", async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      uploadBtn.disabled = true;
+      fileInput.disabled = true;
+
+      if (!BACKEND_URL) {
+        confirmEl.innerHTML =
+          '<div class="confirm">"' + escapeHtml(file.name) + '" ontvangen. We lezen de cijfers in en nemen ' +
+          'de EBITDA-/margeanalyse mee in je volgende sessie.</div>';
+        return;
+      }
+
+      confirmEl.innerHTML = '<div class="confirm">"' + escapeHtml(file.name) + '" wordt ingelezen...</div>';
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(BACKEND_URL + "/api/parse-financials", { method: "POST", body: formData });
+        if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+        const data = await res.json();
+        const n = data.aantal_herkend || 0;
+        confirmEl.innerHTML =
+          '<div class="confirm">"' + escapeHtml(file.name) + '" ingelezen — ' + n + ' post(en) herkend. ' +
+          'We bespreken de EBITDA-/margeanalyse in je volgende sessie. ' + escapeHtml(data.disclaimer || '') + '</div>';
+      } catch (err) {
+        confirmEl.innerHTML =
+          '<div class="confirm">"' + escapeHtml(file.name) + '" ontvangen, maar automatisch inlezen lukte nu niet ' +
+          '(' + escapeHtml(err.message) + '). We verwerken het manueel voor je volgende sessie.</div>';
+      }
+    });
+  }
+
+  let aiQaHistory = [];
+  function setupAiQaPanel(perspScores) {
+    const msgsEl = document.getElementById("aiQaMsgs");
+    const inputEl2 = document.getElementById("aiQaInput");
+    const sendBtn2 = document.getElementById("aiQaSendBtn");
+    if (!msgsEl || !inputEl2 || !sendBtn2) return;
+
+    aiQaHistory = [];
+
+    if (!BACKEND_URL) {
+      msgsEl.innerHTML = '<div class="unavailable">Deze functie komt binnenkort beschikbaar — het gesprek is nog niet gekoppeld aan een live server.</div>';
+      inputEl2.disabled = true;
+      sendBtn2.disabled = true;
+      return;
+    }
+
+    const scoresObj = {};
+    perspScores.forEach((p) => { scoresObj[p.label] = p.score; });
+
+    function addAiMsg(text, cls) {
+      const div = document.createElement("div");
+      div.className = "ai-msg " + cls;
+      div.textContent = text;
+      msgsEl.appendChild(div);
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+
+    async function sendAiQa() {
+      const text = inputEl2.value.trim();
+      if (!text) return;
+      addAiMsg(text, "user");
+      aiQaHistory.push({ role: "user", content: text });
+      inputEl2.value = "";
+      sendBtn2.disabled = true;
+
+      try {
+        const res = await fetch(BACKEND_URL + "/api/qa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sector: SECTORS[currentSector].name,
+            scan_scores: scoresObj,
+            answers: answers,
+            history: aiQaHistory.slice(0, -1),
+            message: text,
+          }),
+        });
+        if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+        const data = await res.json();
+        addAiMsg(data.reply, "bot");
+        aiQaHistory.push({ role: "assistant", content: data.reply });
+      } catch (err) {
+        addAiMsg("Er ging iets mis bij het ophalen van een antwoord (" + err.message + "). Probeer het later opnieuw.", "bot");
+      } finally {
+        sendBtn2.disabled = false;
+      }
+    }
+
+    sendBtn2.addEventListener("click", sendAiQa);
+    inputEl2.addEventListener("keydown", (e) => { if (e.key === "Enter") sendAiQa(); });
+  }
+
+  function choosePath(path) {
+    const confirmEl = document.getElementById("pathConfirm");
+    if (!confirmEl) return;
+
+    const improveListEl = document.getElementById("improveList");
+    const lockOverlayEl = document.getElementById("lockOverlay");
+    if (improveListEl) improveListEl.classList.remove("locked");
+    if (lockOverlayEl) lockOverlayEl.remove();
+
+    if (path === "consult") {
+      confirmEl.innerHTML =
+        '<div class="path-confirm">Aanvraag genoteerd — rapport hierboven ontgrendeld. Een Zenpertise-adviseur neemt binnen 2 werkdagen contact op om de eerste sessie in te plannen.</div>';
+    } else {
+      confirmEl.innerHTML =
+        '<div class="path-confirm">Genoteerd — rapport hierboven ontgrendeld. Je gaat zelfstandig verder; over 8 weken sturen we automatisch een herinnering voor je volgende Quick Scan.</div>';
+    }
+  }
+
+  function reset() {
+    currentSector = null;
+    lastPerspective = null;
+    if (ttsSupported) window.speechSynthesis.cancel();
+    reportArea.style.display = "none";
+    sectorPicker.style.display = "flex";
+    headerSub.textContent = "Kies je praktijktype om te starten — 12 vragen, 4 minuten.";
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement("div");
+    d.textContent = str || "";
+    return d.innerHTML;
+  }
+
+  function setupSpeechInput() {
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      micBtn.style.display = "none";
+      return;
+    }
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.lang = "nl-BE";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    let isListening = false;
+
+    function showHint(text) {
+      micHint.textContent = text;
+      micHint.style.display = text ? "block" : "none";
+    }
+
+    function stopListeningUi() {
+      isListening = false;
+      micBtn.classList.remove("listening");
+      micBtn.textContent = "🎤";
+      micBtn.title = "Spreek je antwoord in";
+    }
+
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.classList.add("listening");
+      micBtn.textContent = "⏹";
+      micBtn.title = "Stop met luisteren";
+      showHint("Aan het luisteren... spreek je antwoord in.");
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
+      inputEl.value = transcript;
+    };
+
+    recognition.onerror = (event) => {
+      stopListeningUi();
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        showHint("Microfoontoegang geweigerd — sta microfoongebruik toe in je browser om spraakinvoer te gebruiken.");
+      } else if (event.error === "no-speech") {
+        showHint("Niets gehoord — probeer opnieuw of typ je antwoord.");
+      } else {
+        showHint("Spraakherkenning niet gelukt — typ je antwoord gerust.");
+      }
+    };
+
+    recognition.onend = () => {
+      stopListeningUi();
+      if (inputEl.value.trim()) {
+        showHint("Herkend — controleer en klik op Verstuur (of pas het gerust aan).");
+        inputEl.focus();
+      } else {
+        showHint("");
+      }
+    };
+
+    micBtn.addEventListener("click", () => {
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+      if (ttsSupported) window.speechSynthesis.cancel();
+      inputEl.value = "";
+      showHint("");
+      try { recognition.start(); } catch (e) { }
+    });
+  }
+
+  sendBtn.addEventListener("click", () => handleAnswer(inputEl.value));
+  inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAnswer(inputEl.value); });
+
+  setupSpeechInput();
+  renderSectorPicker();
+})();
+</script>
+</body>
+</html>
