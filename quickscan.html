@@ -119,10 +119,30 @@
   .lock-overlay .lock-icon { font-size:26px; margin-bottom:8px; }
   .lock-overlay p { font-size:13px; color:#234f42; max-width:300px; margin:0; font-weight:600; line-height:1.4; }
   .lock-overlay .lock-sub { font-weight:400; color:#556; font-size:12px; margin-top:4px; }
+
+  .access-gate { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px; z-index:999; }
+  .access-card { background:white; border-radius:14px; box-shadow:0 2px 14px rgba(0,0,0,0.06); border:1px solid var(--border); padding:32px 28px; max-width:360px; width:100%; text-align:center; }
+  .access-card .access-icon { font-size:30px; margin-bottom:10px; }
+  .access-card h2 { font-size:17px; margin:0 0 8px; color:var(--primary-dark); }
+  .access-card p { font-size:13px; color:#556; line-height:1.5; margin:0 0 16px; }
+  .access-card input { width:100%; padding:10px 13px; border-radius:10px; border:1px solid var(--border); font-size:14px; margin-bottom:10px; text-align:center; letter-spacing:0.05em; box-sizing:border-box; }
+  .access-card button { width:100%; background:var(--primary); color:white; border:none; border-radius:10px; padding:10px 18px; font-size:14px; cursor:pointer; }
+  .access-card button:hover { background:var(--primary-dark); }
+  .access-error { color:var(--red) !important; font-weight:600; margin-top:10px !important; margin-bottom:0 !important; }
 </style>
 </head>
 <body>
-<div class="app">
+<div id="accessGate" class="access-gate">
+  <div class="access-card">
+    <div class="access-icon">🔒</div>
+    <h2>Zenpertise Quick Scan</h2>
+    <p>Deze tool is nog niet publiek beschikbaar. Heb je een toegangscode van Zenpertise gekregen? Vul die hieronder in.</p>
+    <input type="text" id="accessCodeInput" placeholder="Toegangscode" autocomplete="off">
+    <button id="accessCodeBtn" type="button">Ontgrendelen</button>
+    <p id="accessCodeError" class="access-error" style="display:none;">Onjuiste code — probeer opnieuw.</p>
+  </div>
+</div>
+<div class="app" id="appRoot" style="display:none;">
   <div class="card">
     <div class="header">
       <button id="voiceToggle" class="voice-toggle" type="button" title="Bot spreekt vragen uit — klik om te dempen" aria-label="Spraakweergave aan/uit">🔊</button>
@@ -1032,27 +1052,90 @@
     headerSub.textContent = "Kies je praktijktype om te starten — 12 vragen, 4 minuten.";
   }
 
-  // Toont na een geslaagde redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
-  // bevestigingsscherm i.p.v. de gewone scanflow. De volledige pagina is intussen herladen (de
-  // klant was even weg naar Mollie), dus we hebben geen scanstatus meer om een rapport uit op te
-  // bouwen — het rapport zelf wordt server-side gegenereerd en gemaild zodra de betaalwebhook
-  // bevestiging geeft, hier tonen we enkel een geruststellende bevestiging.
-  function showPaidThankYou() {
+  // Toont na een redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
+  // bevestigingsscherm i.p.v. de gewone scanflow. LET OP: Mollie stuurt de klant ALTIJD terug naar
+  // redirectUrl na de checkoutpagina — ook bij annuleren, mislukken, of gewoon teruggaan zonder te
+  // betalen. "?paid=1" alleen betekent dus NIET dat er effectief betaald is. Daarom vragen we via
+  // /api/payment-status (gekoppeld aan de "ref"-parameter die create-payment meestuurt) de echte
+  // status op vóór we een bevestiging tonen — zie checkPaymentStatusAndRender() hieronder.
+  function renderPaymentScreen(state) {
     sectorPicker.style.display = "none";
     chatArea.style.display = "none";
     reportArea.style.display = "block";
+
+    const COPY = {
+      checking: {
+        title: "Even geduld...",
+        body: "We controleren de status van je betaling.",
+      },
+      paid: {
+        title: "Bedankt voor je betaling!",
+        body: "Je Zenpertise Quick Scan-rapport wordt nu automatisch per mail verstuurd — dit duurt meestal maar enkele seconden. Zie je na een kwartier nog niets (check ook je spamfolder)? Neem dan gerust rechtstreeks contact met ons op.",
+      },
+      pending: {
+        title: "We wachten nog op bevestiging",
+        body: "Je betaling is nog niet bevestigd door Mollie. Dat kan bij sommige betaalmethodes iets langer duren. Herlaad deze pagina straks opnieuw — zodra de bevestiging binnen is, sturen we je rapport automatisch per mail. Zie je na een kwartier nog niets? Neem dan gerust rechtstreeks contact met ons op.",
+      },
+      failed: {
+        title: "Betaling niet voltooid",
+        body: "Je betaling is niet gelukt, geannuleerd, of je bent teruggekeerd zonder te betalen — er is niets afgeschreven en er is dus ook geen rapport verstuurd. Wil je het opnieuw proberen?",
+      },
+      unknown: {
+        title: "Status onbekend",
+        body: "We konden de status van deze betaling niet terugvinden (bv. een verlopen link). Heb je wél betaald maar zie je hier geen bevestiging, neem dan rechtstreeks contact met ons op — anders kan je hieronder gewoon opnieuw starten.",
+      },
+    };
+    const c = COPY[state] || COPY.unknown;
+
     reportArea.innerHTML =
       '<div class="path-confirm" style="margin:20px;">' +
-        '<div style="font-weight:700;margin-bottom:8px;font-size:15px;">Bedankt voor je betaling!</div>' +
-        '<p style="font-size:13px;color:#556;line-height:1.6;margin:0;">Zodra we de bevestiging van je betaling ontvangen — meestal binnen enkele seconden, soms enkele minuten — sturen we je Zenpertise Quick Scan-rapport automatisch per mail. Zie je na een kwartier nog niets? Neem dan gerust rechtstreeks contact met ons op.</p>' +
+        '<div style="font-weight:700;margin-bottom:8px;font-size:15px;">' + escapeHtml(c.title) + '</div>' +
+        '<p style="font-size:13px;color:#556;line-height:1.6;margin:0;">' + escapeHtml(c.body) + '</p>' +
       '</div>';
-    const restartBtn = document.createElement("button");
-    restartBtn.className = "restart-btn";
-    restartBtn.style.margin = "0 20px 20px";
-    restartBtn.textContent = "← Nieuwe scan starten";
-    restartBtn.onclick = reset;
-    reportArea.appendChild(restartBtn);
-    headerSub.textContent = "Bedankt — je rapport is onderweg.";
+
+    if (state !== "checking") {
+      const restartBtn = document.createElement("button");
+      restartBtn.className = "restart-btn";
+      restartBtn.style.margin = "0 20px 20px";
+      restartBtn.textContent = state === "failed" ? "← Opnieuw proberen" : "← Nieuwe scan starten";
+      restartBtn.onclick = reset;
+      reportArea.appendChild(restartBtn);
+    }
+
+    headerSub.textContent =
+      state === "paid" ? "Bedankt — je rapport is onderweg." :
+      state === "failed" ? "Betaling niet voltooid." :
+      state === "pending" ? "Nog geen bevestiging ontvangen." :
+      "Status wordt gecontroleerd...";
+  }
+
+  // Vraagt de echte betaalstatus op bij de backend (gekoppeld aan de "ref"-parameter) en toont
+  // pas dan het juiste scherm. Zonder geldige ref (oude links, of BACKEND_URL niet ingesteld)
+  // vallen we terug op de oude, voorzichtige "pending"-boodschap i.p.v. blind "betaald" te tonen.
+  async function checkPaymentStatusAndRender(ref) {
+    if (!ref || !BACKEND_URL) {
+      renderPaymentScreen("pending");
+      return;
+    }
+    renderPaymentScreen("checking");
+    const maxAttempts = 8; // ~16s, ruim boven de "meestal enkele seconden" die de webhook nodig heeft
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const res = await fetch(BACKEND_URL + "/api/payment-status?ref=" + encodeURIComponent(ref));
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === "paid" || data.status === "failed" || data.status === "unknown") {
+            renderPaymentScreen(data.status);
+            return;
+          }
+          // status "pending": nog even opnieuw proberen hieronder
+        }
+      } catch (e) {
+        // netwerkfout — gewoon opnieuw proberen tot maxAttempts bereikt is
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    renderPaymentScreen("pending");
   }
 
   function escapeHtml(str) {
@@ -1140,10 +1223,56 @@
   inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAnswer(inputEl.value); });
 
   setupSpeechInput();
-  if (new URLSearchParams(window.location.search).get("paid") === "1") {
-    showPaidThankYou();
+
+  // --- Toegangscode-vergrendeling -------------------------------------------------
+  // De tool is nog niet voor het grote publiek bedoeld. Bezoekers moeten eerst de
+  // toegangscode invoeren die Zenpertise met geselecteerde testpersonen deelt.
+  // Puur client-side (geen gevoelige data achter dit slot) — voldoende om te
+  // voorkomen dat toevallige bezoekers de scan starten, niet waterdicht.
+  const ACCESS_CODE = "ZEN2026";
+  const ACCESS_STORAGE_KEY = "zenpertise_qs_unlocked";
+  const accessGateEl = document.getElementById("accessGate");
+  const appRootEl = document.getElementById("appRoot");
+  const accessCodeInput = document.getElementById("accessCodeInput");
+  const accessCodeBtn = document.getElementById("accessCodeBtn");
+  const accessCodeError = document.getElementById("accessCodeError");
+
+  function bootApp() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("paid") === "1") {
+      checkPaymentStatusAndRender(params.get("ref"));
+    } else {
+      renderSectorPicker();
+    }
+  }
+
+  function unlockApp() {
+    try { sessionStorage.setItem(ACCESS_STORAGE_KEY, "1"); } catch (e) { /* privémodus etc. — negeren */ }
+    accessGateEl.style.display = "none";
+    appRootEl.style.display = "block";
+    bootApp();
+  }
+
+  function tryUnlock() {
+    const entered = (accessCodeInput.value || "").trim().toUpperCase();
+    if (entered === ACCESS_CODE) {
+      unlockApp();
+    } else {
+      accessCodeError.style.display = "block";
+      accessCodeInput.value = "";
+      accessCodeInput.focus();
+    }
+  }
+
+  accessCodeBtn.addEventListener("click", tryUnlock);
+  accessCodeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+
+  let alreadyUnlocked = false;
+  try { alreadyUnlocked = sessionStorage.getItem(ACCESS_STORAGE_KEY) === "1"; } catch (e) { /* negeren */ }
+  if (alreadyUnlocked) {
+    unlockApp();
   } else {
-    renderSectorPicker();
+    accessCodeInput.focus();
   }
 })();
 </script>
