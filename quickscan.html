@@ -147,7 +147,7 @@
     <div class="header">
       <button id="voiceToggle" class="voice-toggle" type="button" title="Bot spreekt vragen uit — klik om te dempen" aria-label="Spraakweergave aan/uit">🔊</button>
       <h1>Zenpertise Quick Scan</h1>
-      <p id="headerSub">Kies je praktijktype om te starten — 12 vragen, 4 minuten.</p>
+      <p id="headerSub">Kies je praktijktype om te starten — 15 vragen, 5 minuten.</p>
     </div>
     <div id="sectorPicker" class="sector-picker"></div>
     <div id="chatArea" style="display:none;">
@@ -1049,7 +1049,7 @@
     if (ttsSupported) window.speechSynthesis.cancel();
     reportArea.style.display = "none";
     sectorPicker.style.display = "flex";
-    headerSub.textContent = "Kies je praktijktype om te starten — 12 vragen, 4 minuten.";
+    headerSub.textContent = "Kies je praktijktype om te starten — 15 vragen, 5 minuten.";
   }
 
   // Toont na een redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
