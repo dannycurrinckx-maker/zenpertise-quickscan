@@ -49,7 +49,7 @@
   .report h2 { font-size:16px; margin:0 0 4px; color:var(--primary-dark); }
   .report .sub { font-size:12.5px; color:#667; margin-bottom:16px; }
   .bsc-chart { border:1px solid var(--border); border-radius:12px; padding:10px 8px 4px; margin-bottom:16px; background:white; }
-  .score-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+  .score-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px; }
   .score-card { border:1px solid var(--border); border-radius:10px; padding:14px; }
   .score-card .persp { font-size:12px; color:#667; text-transform:uppercase; letter-spacing:0.03em; }
   .score-card .badge { display:inline-block; margin-top:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; color:white; }
@@ -63,11 +63,13 @@
   .improve-item .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
   .improve-item .dot.amber { background:var(--amber); }
   .improve-item .dot.red { background:var(--red); }
+  .improve-item .calc-note { display:block; margin-top:3px; font-size:11.5px; color:#778; font-weight:400; }
   .restart-btn { margin:16px 0 0; background:white; border:1px solid var(--primary); color:var(--primary); border-radius:10px; padding:9px 14px; font-size:13px; cursor:pointer; }
 
   .next-steps { border-top:1px solid var(--border); padding-top:18px; margin-top:18px; }
   .next-steps h3 { font-size:14px; margin:0 0 4px; }
   .next-steps .sub { font-size:12.5px; color:#667; margin-bottom:14px; }
+  .path-anchor { font-size:12px; color:#556; background:#f4f7f6; border:1px solid var(--border); border-radius:8px; padding:8px 12px; margin-bottom:12px; }
   .path-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:560px) { .path-grid { grid-template-columns:1fr; } }
   .path-card { border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; flex-direction:column; }
@@ -75,7 +77,8 @@
   .path-card .path-tag { font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--primary); font-weight:700; margin-bottom:6px; }
   .path-card h4 { font-size:14.5px; margin:0 0 6px; }
   .path-card p { font-size:12.5px; color:#556; margin:0 0 10px; line-height:1.5; flex:1; }
-  .path-card .price { font-size:13px; font-weight:700; color:var(--primary-dark); margin-bottom:10px; }
+  .path-card .price { font-size:13px; font-weight:700; color:var(--primary-dark); margin-bottom:4px; }
+  .path-card .guarantee { font-size:11px; color:#667; margin-bottom:10px; }
   .path-card button { background:var(--primary); color:white; border:none; border-radius:8px; padding:9px 12px; font-size:13px; cursor:pointer; }
   .path-card button:hover { background:var(--primary-dark); }
   .path-card.secondary button { background:white; color:var(--primary); border:1px solid var(--primary); }
@@ -150,7 +153,7 @@
   // Leeg = geen live backend geconfigureerd -> alle functies vallen netjes terug op hun
   // huidige (offline) gedrag. Zet dit op je live URL zodra je het backend gedeployed hebt,
   // bv. "https://zenpertise-backend.onrender.com" (zie backend/README.md).
-  const BACKEND_URL = "https://zenpertise-backend-api.onrender.com";
+  const BACKEND_URL = "https://zenpertise-backend.onrender.com";
 
   // Sectoren komen uit sectors_master.js (enige bron van waarheid, ook gebruikt
   // door intake_flow.html en generate_intake_docs.js). Hier is enkel name/icon nodig.
@@ -164,14 +167,34 @@
       key: "financieel", label: "Financieel",
       questions: [
         {
-          key: "bezetting", label: "Wat is de gemiddelde bezettingsgraad van je agenda (% ingevulde behandelslots)? (getal, bv. 82)",
-          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n >= 85) return "green"; if (n >= 70) return "amber"; return "red"; },
+          key: "patientenPerWeek", label: "Hoeveel patiënten/cliënten zag je gemiddeld per week, de afgelopen maand? (getal)",
+          status: (v, allAnswers) => {
+            const seen = parseFloat(v);
+            const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            if (isNaN(seen) || isNaN(cap) || cap <= 0) return "amber";
+            const pct = (seen / cap) * 100;
+            if (pct >= 85) return "green"; if (pct >= 70) return "amber"; return "red";
+          },
+          display: (v, allAnswers) => {
+            const seen = parseFloat(v), cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            return (!isNaN(seen) && !isNaN(cap) && cap > 0) ? "Gemeten bezetting: " + Math.round((seen / cap) * 100) + "% (" + seen + " van " + cap + ")." : "";
+          },
           improve: "Verhoog de bezettingsgraad: analyseer piek- en daluren, en overweeg automatische herinneringen om no-shows te verlagen die slots vrijmaken.",
         },
         {
-          key: "openstaand", label: "Welk percentage van je facturen staat langer dan 30 dagen open? (getal, bv. 8)",
-          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 5) return "green"; if (n <= 15) return "amber"; return "red"; },
-          improve: "Zet een vast opvolgproces op voor openstaande facturen (automatische herinnering na 14 en 30 dagen) om betalingsachterstand te verlagen.",
+          key: "nietBetaaldPerWeek", label: "Bij hoeveel patiënten/cliënten per week blijft de betaling gemiddeld uit (niet meteen of niet na herinnering betaald)? (getal)",
+          status: (v, allAnswers) => {
+            const unpaid = parseFloat(v);
+            const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            if (isNaN(unpaid) || isNaN(cap) || cap <= 0) return "amber";
+            const pct = (unpaid / cap) * 100;
+            if (pct <= 5) return "green"; if (pct <= 15) return "amber"; return "red";
+          },
+          display: (v, allAnswers) => {
+            const unpaid = parseFloat(v), cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            return (!isNaN(unpaid) && !isNaN(cap) && cap > 0) ? "Gemeten niet-betaald: " + Math.round((unpaid / cap) * 100) + "% (" + unpaid + " van " + cap + ")." : "";
+          },
+          improve: "Zet een vast opvolgproces op voor onbetaalde behandelingen (automatische herinnering na 14 en 30 dagen) om betalingsachterstand te verlagen.",
         },
         {
           key: "omzetTrend", label: "Is de omzet de afgelopen 6 maanden gestegen, gelijk gebleven of gedaald?",
@@ -190,8 +213,18 @@
           improve: "Verkort de wachttijd tot de eerste afspraak: overweeg een wachtlijst-automatisering die vrijgekomen slots meteen aanbiedt aan wachtenden.",
         },
         {
-          key: "noShow", label: "Welk percentage van de afspraken is een no-show (patiënt komt niet opdagen)? (getal)",
-          status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 5) return "green"; if (n <= 12) return "amber"; return "red"; },
+          key: "noShowPerWeek", label: "Hoeveel afspraken zijn er gemiddeld per week een no-show (patiënt komt niet opdagen)? (getal)",
+          status: (v, allAnswers) => {
+            const noShow = parseFloat(v);
+            const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            if (isNaN(noShow) || isNaN(cap) || cap <= 0) return "amber";
+            const pct = (noShow / cap) * 100;
+            if (pct <= 5) return "green"; if (pct <= 12) return "amber"; return "red";
+          },
+          display: (v, allAnswers) => {
+            const noShow = parseFloat(v), cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            return (!isNaN(noShow) && !isNaN(cap) && cap > 0) ? "Gemeten no-show: " + Math.round((noShow / cap) * 100) + "% (" + noShow + " van " + cap + ")." : "";
+          },
           improve: "Verlaag no-shows met automatische afspraakherinneringen (sms/WhatsApp) 24-48u op voorhand.",
         },
         {
@@ -244,6 +277,34 @@
           quick: ["5", "4", "3", "2", "1"],
           status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n >= 4) return "green"; if (n === 3) return "amber"; return "red"; },
           improve: "Zet een korte, terugkerende teampuls-survey op om vroeg signalen van dalende tevredenheid op te vangen.",
+        },
+      ],
+    },
+    // 5e perspectief — breder dan de klassieke BSC: niet de praktijk als systeem, maar de
+    // veerkracht van de praktijkhouder zelf. Gebaseerd op leiderschapsprincipes uit "From Black
+    // Belt to Boardroom" (foutmanagement/ukemi, energiebeheer, aanwezigheid onder druk) — een
+    // aandachtsgebied dat in de klassieke Balanced Scorecard ontbreekt, maar dat we in de praktijk
+    // net zo vaak als knelpunt terugzien als de operationele cijfers.
+    {
+      key: "leiderschap", label: "Leiderschap & Veerkracht",
+      questions: [
+        {
+          key: "foutmanagement", label: "Hoe ga je meestal om met een fout of tegenslag in de praktijk (bv. een verkeerde inschatting, een moeilijk gesprek, een conflict)?",
+          quick: ["Ik analyseer wat er misging en stuur snel bij", "Het houdt me een tijd bezig voor ik verderga", "Ik vermijd het liever of blijf erin hangen"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ik analyseer")) return "green"; if (s.startsWith("het houdt")) return "amber"; return "red"; },
+          improve: "Bouw een vast 'terugblik-ritueel' in na een tegenslag: wat gebeurde er, wat leer je eruit, wat pas je aan — zonder erin te blijven hangen.",
+        },
+        {
+          key: "herstel", label: "Neem je structureel rust of hersteltijd, los van vakantie (bv. een vaste vrije avond, geen mails na sluitingstijd)?",
+          quick: ["Ja, structureel ingebouwd", "Soms, als het uitkomt", "Zelden tot nooit"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja, structureel")) return "green"; if (s.startsWith("soms")) return "amber"; return "red"; },
+          improve: "Plan bewust hersteltijd in je agenda, net als een afspraak met een patiënt — anders is het altijd het eerste dat sneuvelt.",
+        },
+        {
+          key: "aanwezigheid", label: "Wanneer het druk of gespannen wordt in de praktijk, merkt je team of merken patiënten dat aan jou?",
+          quick: ["Meestal niet — ik blijf zichtbaar kalm", "Soms, afhankelijk van de dag", "Ja, mijn stress is vaak voelbaar voor anderen"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("meestal niet")) return "green"; if (s.startsWith("soms")) return "amber"; return "red"; },
+          improve: "Oefen een kort 'reset-moment' voor je een spreekkamer of vergadering binnengaat (bv. drie bewuste ademhalingen) — een kleine gewoonte met grote invloed op hoe je overkomt.",
         },
       ],
     },
@@ -302,12 +363,15 @@
   let answers = {};
   let chosenPath = null;
   let whatsappNumber = null;
+  let paymentConfigured = false; // wordt bijgewerkt zodra /api/config antwoordt (zie showReport)
 
   // Zet de ruwe antwoorden om naar {vraag, antwoord}-paren (leesbare vraagtekst i.p.v. interne
   // sleutel) — gedeeld door het AI-Q&A-paneel en de lead-aanvraag, zodat de backend altijd weet
   // wélke vraag bij welk antwoord hoort.
   function answeredQaList() {
-    return flatQuestions.map((q) => ({ vraag: q.label, antwoord: answers[q.key] || "" }));
+    // perspLabel meesturen zodat de backend antwoorden correct per BSC-perspectief kan groeperen
+    // in het rapport (bv. de uitgebreide PDF) zonder de vragenlijst zelf te moeten dupliceren.
+    return flatQuestions.map((q) => ({ vraag: q.label, antwoord: answers[q.key] || "", perspectief: q.perspLabel }));
   }
 
   function renderSectorPicker() {
@@ -326,7 +390,17 @@
     currentSector = key;
     answers = {};
     qIndex = 0;
-    flatQuestions = [];
+    // Eerst een losse basisvraag: hoeveel patiënten/cliënten kan de praktijk maximaal per week zien?
+    // Dat getal is de 100%-basis waartegen we bezetting/no-show/niet-betaald hieronder automatisch
+    // herrekenen — de praktijkeigenaar hoeft dus geen percentages zelf in te schatten, enkel de
+    // ruwe aantallen die hij toch al kent. Telt niet mee als één van de "12 vragen" en beïnvloedt de
+    // score niet rechtstreeks (geen status()-functie, dus nooit in BSC-perspectieven/rapport).
+    flatQuestions = [
+      {
+        key: "maxCapaciteit", perspKey: "setup", perspLabel: "Basisgegevens", isSetup: true,
+        label: "Om te beginnen: hoeveel patiënten/cliënten kan je praktijk maximaal per week zien? (getal, bv. 60 — dit is je 100%-basis, de volgende vragen rekenen we automatisch om naar percentages)",
+      },
+    ];
     BSC.forEach((persp) => persp.questions.forEach((q) => flatQuestions.push({ perspKey: persp.key, perspLabel: persp.label, ...q })));
 
     sectorPicker.style.display = "none";
@@ -334,7 +408,7 @@
     chatArea.style.display = "block";
     messagesEl.innerHTML = "";
     headerSub.textContent = SECTORS[key].name + " — quick scan loopt";
-    botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. Ik ga voor jouw sector naar de juiste gegevens en overloop 12 korte vragen, verdeeld over 4 aandachtsgebieden.");
+    botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. Eerst één basisvraag over je praktijkcapaciteit, daarna 15 korte vragen verdeeld over 5 aandachtsgebieden — naast de operationele cijfers ook je eigen leiderschap en veerkracht als praktijkhouder. Percentages berekenen we automatisch voor je op basis van de aantallen die je invult.");
     setTimeout(askNext, 400);
   }
 
@@ -361,7 +435,11 @@
   }
 
   function updateProgress() {
-    progressEl.textContent = "Vraag " + Math.min(qIndex + 1, flatQuestions.length) + " van " + flatQuestions.length;
+    const q = flatQuestions[qIndex];
+    if (q && q.isSetup) { progressEl.textContent = "Basisvraag"; return; }
+    const setupCount = flatQuestions.filter((fq) => fq.isSetup).length;
+    const total = flatQuestions.length - setupCount;
+    progressEl.textContent = "Vraag " + Math.min(qIndex - setupCount + 1, total) + " van " + total;
   }
 
   let lastPerspective = null;
@@ -416,7 +494,7 @@
     return "red";
   }
   function perspectiveScore(persp) {
-    const vals = persp.questions.map((q) => SCORE_VALUE[q.status(answers[q.key])]);
+    const vals = persp.questions.map((q) => SCORE_VALUE[q.status(answers[q.key], answers)]);
     return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
   }
 
@@ -430,7 +508,9 @@
   function buildBscRadarSvg(perspScores) {
     const size = 380, cx = size / 2, cy = size / 2 + 4, R = 108;
     const N = perspScores.length;
-    const hex = { green: "#2e8b57", amber: "#c98a2c", red: "#c0392b" };
+    const hexDark = { green: "#1f6b46", amber: "#a8650f", red: "#8f2415" };
+    const hexLight = { green: "#6ee7b0", amber: "#ffd98a", red: "#ff9c8a" };
+    const uid = "bsc" + Math.random().toString(36).slice(2, 8);
 
     function angleFor(i) { return -Math.PI / 2 + i * (2 * Math.PI / N); }
     function pointFor(i, value) {
@@ -439,48 +519,89 @@
       return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
     }
 
+    const defs = `<defs>
+      <radialGradient id="${uid}-bg" cx="50%" cy="45%" r="65%">
+        <stop offset="0%" stop-color="#2f6f5e" stop-opacity="0.10"/>
+        <stop offset="70%" stop-color="#2f6f5e" stop-opacity="0.03"/>
+        <stop offset="100%" stop-color="#2f6f5e" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="${uid}-fill" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#3d8f77" stop-opacity="0.78"/>
+        <stop offset="100%" stop-color="#255a4a" stop-opacity="0.58"/>
+      </linearGradient>
+      <filter id="${uid}-shadow" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f2a22" flood-opacity="0.30"/>
+      </filter>
+      <filter id="${uid}-softshadow" x="-80%" y="-80%" width="260%" height="260%">
+        <feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="#0f2a22" flood-opacity="0.35"/>
+      </filter>
+      <filter id="${uid}-glow" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="4.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      ${["green", "amber", "red"].map((c) => `<radialGradient id="${uid}-dot-${c}" cx="32%" cy="28%" r="75%">
+        <stop offset="0%" stop-color="${hexLight[c]}"/>
+        <stop offset="100%" stop-color="${hexDark[c]}"/>
+      </radialGradient>`).join("")}
+    </defs>`;
+
     let inner = "";
 
-    // Rasterringen op 25/50/75/100
-    [25, 50, 75, 100].forEach((lvl) => {
+    // Zachte "vloer"-schaduw onder de grafiek voor dieptegevoel
+    inner += `<ellipse cx="${cx}" cy="${cy + R * 0.94}" rx="${R * 0.95}" ry="${R * 0.15}" fill="#0f2a22" opacity="0.08"/>`;
+
+    // Achtergrondgloed
+    inner += `<circle cx="${cx}" cy="${cy}" r="${R * 1.22}" fill="url(#${uid}-bg)"/>`;
+
+    // Gelaagde "terrein"-banden tussen de rasterringen (25/50/75/100)
+    [25, 50, 75, 100].forEach((lvl, idx) => {
       const pts = perspScores.map((_, i) => pointFor(i, lvl).join(",")).join(" ");
-      inner += `<polygon points="${pts}" fill="none" stroke="#e2e8e5" stroke-width="1"/>`;
+      const bandOpacity = (0.05 + idx * 0.025).toFixed(3);
+      inner += `<polygon points="${pts}" fill="#2f6f5e" fill-opacity="${bandOpacity}" stroke="#cfe0da" stroke-width="1"/>`;
     });
 
     // Assen
     perspScores.forEach((_, i) => {
       const [x, y] = pointFor(i, 100);
-      inner += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#dbe4e1" stroke-width="1"/>`;
+      inner += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#c9d8d2" stroke-width="1"/>`;
     });
 
     // Doelring op 80 (gestippeld)
     const targetPts = perspScores.map((_, i) => pointFor(i, HEALTHY_TARGET).join(",")).join(" ");
-    inner += `<polygon points="${targetPts}" fill="none" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="5,4"/>`;
+    inner += `<polygon points="${targetPts}" fill="none" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.55"/>`;
 
-    // Scorepolygoon (het "spiderweb")
+    // Schaduw van het scorepolygoon (geeft het gevoel dat het "zweeft" boven het raster)
     const scorePts = perspScores.map((p, i) => pointFor(i, p.score).join(",")).join(" ");
-    inner += `<polygon points="${scorePts}" fill="#2f6f5e" fill-opacity="0.16" stroke="#2f6f5e" stroke-width="2"/>`;
+    inner += `<polygon points="${scorePts}" fill="#0f2a22" opacity="0.18" filter="url(#${uid}-shadow)" transform="translate(0,3)"/>`;
+
+    // Scorepolygoon (het "spiderweb"): glasachtige gradient-fill + gloed
+    inner += `<polygon points="${scorePts}" fill="url(#${uid}-fill)" stroke="#2f6f5e" stroke-width="2.5" filter="url(#${uid}-glow)"/>`;
 
     perspScores.forEach((p, i) => {
       const [x, y] = pointFor(i, p.score);
-      const color = hex[scoreColor(p.score)];
-      inner += `<circle cx="${x}" cy="${y}" r="4.5" fill="${color}" stroke="white" stroke-width="1.5"/>`;
+      const statusKey = scoreColor(p.score);
+
+      // Glanzende 3D-bol per meetpunt
+      inner += `<circle cx="${x}" cy="${y}" r="5.5" fill="url(#${uid}-dot-${statusKey})" stroke="white" stroke-width="1.5" filter="url(#${uid}-softshadow)"/>`;
 
       const a = angleFor(i);
       const cosA = Math.cos(a);
       const anchor = Math.abs(cosA) < 0.3 ? "middle" : (cosA > 0 ? "start" : "end");
       const [lx, ly] = pointFor(i, 122);
-      inner += `<text x="${lx}" y="${ly}" font-size="11.5" font-weight="700" text-anchor="${anchor}" fill="#334">${svgLabel(p.label)}</text>`;
+      inner += `<text x="${lx}" y="${ly}" font-size="11.5" font-weight="700" text-anchor="${anchor}" fill="#243b34">${svgLabel(p.label)}</text>`;
 
       const deficitText = p.score < HEALTHY_TARGET ? " (-" + (HEALTHY_TARGET - p.score) + ")" : "";
       const [sx, sy] = pointFor(i, Math.min(p.score + 13, 108));
-      inner += `<text x="${sx}" y="${sy}" font-size="11" font-weight="700" text-anchor="middle" fill="${color}">${p.score}${deficitText}</text>`;
+      inner += `<text x="${sx}" y="${sy}" font-size="11" font-weight="700" text-anchor="middle" fill="${hexDark[statusKey]}">${p.score}${deficitText}</text>`;
     });
 
     const [tgx, tgy] = pointFor(0, HEALTHY_TARGET);
     inner += `<text x="${tgx + 8}" y="${tgy - 6}" font-size="10" font-weight="700" fill="#2f6f5e">Doel: gezond (${HEALTHY_TARGET})</text>`;
 
-    return '<svg viewBox="0 0 ' + size + " " + (size + 8) + '" width="100%" height="auto" role="img" aria-label="BSC-scores per perspectief (spiderweb)">' + inner + "</svg>";
+    // Centrale hub voor extra diepte
+    inner += `<circle cx="${cx}" cy="${cy}" r="3" fill="#2f6f5e" opacity="0.5"/>`;
+
+    return '<svg viewBox="0 0 ' + size + " " + (size + 8) + '" width="100%" height="auto" role="img" aria-label="BSC-scores per perspectief (spiderweb, 3D-stijl)">' + defs + inner + "</svg>";
   }
 
   function showReport() {
@@ -494,7 +615,7 @@
     let improveHtml = "";
 
     BSC.forEach((persp) => {
-      const statuses = persp.questions.map((q) => q.status(answers[q.key]));
+      const statuses = persp.questions.map((q) => q.status(answers[q.key], answers));
       // Perspectief-status = de slechtste van de drie
       const worst = statuses.includes("red") ? "red" : statuses.includes("amber") ? "amber" : "green";
       scoreCardsHtml +=
@@ -502,11 +623,13 @@
         '<span class="badge ' + badgeClass(worst) + '">' + badgeLabel(worst) + '</span></div>';
 
       persp.questions.forEach((q) => {
-        const st = q.status(answers[q.key]);
+        const st = q.status(answers[q.key], answers);
         if (st !== "green") {
+          const calc = q.display ? q.display(answers[q.key], answers) : "";
           improveHtml +=
             '<div class="improve-item"><div class="dot ' + badgeClass(st) + '"></div>' +
-            '<div><strong>' + escapeHtml(persp.label) + ':</strong> ' + escapeHtml(q.improve) + '</div></div>';
+            '<div><strong>' + escapeHtml(persp.label) + ':</strong> ' + escapeHtml(q.improve) +
+            (calc ? '<span class="calc-note">' + escapeHtml(calc) + '</span>' : '') + '</div></div>';
         }
       });
     });
@@ -519,7 +642,7 @@
     // Financieel perspectief zwak? Dan bieden we aan om een jaarrekening/boekhoud-Excel
     // aan te leveren voor een preciezere analyse (EBITDA, marges) — zie parse_financials.py.
     // Nooit fiscaal advies zelf geven, enkel cijfers inlezen en tonen; zie disclaimer.
-    const financieelStatuses = BSC.find((p) => p.key === "financieel").questions.map((q) => q.status(answers[q.key]));
+    const financieelStatuses = BSC.find((p) => p.key === "financieel").questions.map((q) => q.status(answers[q.key], answers));
     const financieelZwak = financieelStatuses.includes("red") || financieelStatuses.includes("amber");
     const financeUploadHtml = financieelZwak
       ? '<div class="finance-upload">' +
@@ -576,19 +699,21 @@
         '<div class="next-steps">' +
           '<h3>Hoe wil je hiermee verder?</h3>' +
           '<div class="sub">Kies wat het best past — je kan later altijd wisselen.</div>' +
+          '<div class="path-anchor">Ter vergelijking: persoonlijke praktijkbegeleiding bij externe consultants kost doorgaans €755 – €2.950 voor een gelijkaardig traject.</div>' +
           '<div class="path-grid">' +
             '<div class="path-card recommended">' +
               '<div class="path-tag">Persoonlijke begeleiding</div>' +
               '<h4>Begeleidingstraject</h4>' +
               '<p>3 sessies van 1,5u met een Zenpertise-adviseur, op maat van jouw scanresultaat. Directe opvolging en bijsturing op wat blijkt vast te lopen.</p>' +
               '<div class="price">€650 (3 sessies)</div>' +
+              '<div class="guarantee">Niet tevreden na sessie 1? Volledige terugbetaling.</div>' +
               '<button data-path="consult">Consult aanvragen</button>' +
             '</div>' +
             '<div class="path-card secondary">' +
               '<div class="path-tag">Volledig digitaal</div>' +
               '<h4>Zelfstandig, met herscan</h4>' +
               '<p>Je gaat zelf aan de slag met de verbeterpunten. Na 8 weken sturen we automatisch een nieuwe scan zodat je vooruitgang zichtbaar wordt.</p>' +
-              '<div class="price">€120 (herscan inbegrepen)</div>' +
+              '<div class="price">€25 (herscan inbegrepen)</div>' +
               '<button data-path="digital">Kies digitaal + herscan</button>' +
             '</div>' +
           '</div>' +
@@ -611,7 +736,12 @@
     // de WhatsApp-link gewoon weg; er breekt niets.
     whatsappNumber = null;
     if (BACKEND_URL) {
-      fetch(BACKEND_URL + "/api/config").then((r) => r.json()).then((d) => { whatsappNumber = d.whatsapp_number || null; }).catch(() => {});
+      fetch(BACKEND_URL + "/api/config").then((r) => r.json()).then((d) => {
+        whatsappNumber = d.whatsapp_number || null;
+        // Laat submitLead() meteen weten of online betalen (Mollie) beschikbaar is, zodat we geen
+        // nutteloze mislukte betaalpoging doen als de server dat nog niet heeft ingesteld.
+        paymentConfigured = !!d.payment_configured;
+      }).catch(() => {});
     }
 
     const restartBtn = document.createElement("button");
@@ -822,20 +952,47 @@
 
     const scoresObj = {};
     BSC.forEach((persp) => { scoresObj[persp.label] = perspectiveScore(persp); });
+    const leadPayload = {
+      sector: SECTORS[currentSector].name,
+      path: chosenPath,
+      naam: naam,
+      email: email,
+      telefoon: telefoon || null,
+      scan_scores: scoresObj,
+      scan_answers: answeredQaList(),
+    };
 
+    // Online betalen (Mollie), indien de server dat heeft ingesteld: stuurt de klant naar een
+    // beveiligde Mollie-checkoutpagina. Het rapport wordt pas gegenereerd en gemaild zodra de
+    // betaling effectief bevestigd is (via de backend-webhook) — niet al bij het klikken hier.
+    if (paymentConfigured) {
+      try {
+        const res = await fetch(BACKEND_URL + "/api/create-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(leadPayload),
+        });
+        if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+        const data = await res.json();
+        if (!data.checkout_url) throw new Error("geen checkout-URL ontvangen");
+        statusEl.textContent = "Je wordt doorgestuurd naar de betaalpagina...";
+        statusEl.style.color = "#234f42";
+        window.location.href = data.checkout_url;
+        return; // pagina navigeert weg, verder script hieronder is niet meer relevant
+      } catch (err) {
+        // Val terug op het manuele pad hieronder i.p.v. de gebruiker vast te laten lopen.
+        statusEl.textContent = "Online betalen lukte niet (" + err.message + ") — we sturen je gegevens toch door, je ontvangt het rapport per mail.";
+        statusEl.style.color = "#556";
+      }
+    }
+
+    // Manueel/fallback-pad: rapport meteen vrijgeven, betaling regelt Zenpertise achteraf. Dit is
+    // ook het pad dat gebruikt wordt als online betalen (nog) niet is ingesteld op de server.
     try {
       const res = await fetch(BACKEND_URL + "/api/submit-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sector: SECTORS[currentSector].name,
-          path: chosenPath,
-          naam: naam,
-          email: email,
-          telefoon: telefoon || null,
-          scan_scores: scoresObj,
-          scan_answers: answeredQaList(),
-        }),
+        body: JSON.stringify(leadPayload),
       });
       if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
       const data = await res.json();
@@ -873,6 +1030,29 @@
     reportArea.style.display = "none";
     sectorPicker.style.display = "flex";
     headerSub.textContent = "Kies je praktijktype om te starten — 12 vragen, 4 minuten.";
+  }
+
+  // Toont na een geslaagde redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
+  // bevestigingsscherm i.p.v. de gewone scanflow. De volledige pagina is intussen herladen (de
+  // klant was even weg naar Mollie), dus we hebben geen scanstatus meer om een rapport uit op te
+  // bouwen — het rapport zelf wordt server-side gegenereerd en gemaild zodra de betaalwebhook
+  // bevestiging geeft, hier tonen we enkel een geruststellende bevestiging.
+  function showPaidThankYou() {
+    sectorPicker.style.display = "none";
+    chatArea.style.display = "none";
+    reportArea.style.display = "block";
+    reportArea.innerHTML =
+      '<div class="path-confirm" style="margin:20px;">' +
+        '<div style="font-weight:700;margin-bottom:8px;font-size:15px;">Bedankt voor je betaling!</div>' +
+        '<p style="font-size:13px;color:#556;line-height:1.6;margin:0;">Zodra we de bevestiging van je betaling ontvangen — meestal binnen enkele seconden, soms enkele minuten — sturen we je Zenpertise Quick Scan-rapport automatisch per mail. Zie je na een kwartier nog niets? Neem dan gerust rechtstreeks contact met ons op.</p>' +
+      '</div>';
+    const restartBtn = document.createElement("button");
+    restartBtn.className = "restart-btn";
+    restartBtn.style.margin = "0 20px 20px";
+    restartBtn.textContent = "← Nieuwe scan starten";
+    restartBtn.onclick = reset;
+    reportArea.appendChild(restartBtn);
+    headerSub.textContent = "Bedankt — je rapport is onderweg.";
   }
 
   function escapeHtml(str) {
@@ -960,7 +1140,11 @@
   inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") handleAnswer(inputEl.value); });
 
   setupSpeechInput();
-  renderSectorPicker();
+  if (new URLSearchParams(window.location.search).get("paid") === "1") {
+    showPaidThankYou();
+  } else {
+    renderSectorPicker();
+  }
 })();
 </script>
 </body>
