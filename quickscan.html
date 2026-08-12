@@ -110,6 +110,13 @@
   .ai-qa-panel .price-note { font-size:11px; color:#889; margin-top:8px; }
   .ai-qa-panel .ai-disclosure { font-size:12px; color:#7a5b00; background:#fff8e6; border:1px solid #f0dfa0; border-radius:8px; padding:9px 11px; margin-bottom:10px; line-height:1.45; }
 
+  .qa-addon-picker { border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:12px; background:#fbfaf7; }
+  .qa-addon-picker .qa-addon-title { font-weight:700; font-size:13px; margin-bottom:8px; color:#234f42; }
+  .qa-addon-picker label { display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:#334; line-height:1.4; margin-bottom:7px; cursor:pointer; }
+  .qa-addon-picker label:last-of-type { margin-bottom:0; }
+  .qa-addon-picker input[type=radio] { margin-top:2px; flex-shrink:0; }
+  .qa-addon-picker .qa-addon-total { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:13px; font-weight:700; color:#234f42; }
+
   .improve-wrapper { position:relative; }
   .improve-list.locked { filter:blur(5px); user-select:none; pointer-events:none; }
   .lock-overlay {
@@ -147,7 +154,7 @@
     <div class="header">
       <button id="voiceToggle" class="voice-toggle" type="button" title="Bot spreekt vragen uit — klik om te dempen" aria-label="Spraakweergave aan/uit">🔊</button>
       <h1>Zenpertise Quick Scan</h1>
-      <p id="headerSub">Kies je praktijktype om te starten — 15 vragen, 5 minuten.</p>
+      <p id="headerSub">Kies je praktijktype om te starten — 12 vragen, 4 minuten.</p>
     </div>
     <div id="sectorPicker" class="sector-picker"></div>
     <div id="chatArea" style="display:none;">
@@ -174,6 +181,13 @@
   // huidige (offline) gedrag. Zet dit op je live URL zodra je het backend gedeployed hebt,
   // bv. "https://zenpertise-backend.onrender.com" (zie backend/README.md).
   const BACKEND_URL = "https://zenpertise-backend.onrender.com";
+
+  // AI-Q&A-add-on — spiegelt QA_ADDON_DAYS/QA_ADDON_PRICES in de backend (main.py). Enkel voor de
+  // live prijsweergave hier in de checkout; de backend rekent en int het echte bedrag (zelfde
+  // "frontend toont, backend int"-principe als bij PATH_PRICES in de backend).
+  const PATH_BASE_PRICES = { digital: 25, consult: 650 };
+  const QA_ADDON_PRICES_JS = { "": 0, "4weken": 15, "8weken": 25 };
+  const QA_ADDON_LABELS_JS = { "4weken": "4 weken toegang tot de AI-adviseur", "8weken": "8 weken toegang, tot je herscan" };
 
   // Sectoren komen uit sectors_master.js (enige bron van waarheid, ook gebruikt
   // door intake_flow.html en generate_intake_docs.js). Hier is enkel name/icon nodig.
@@ -684,9 +698,10 @@
         '</div>'
       : "";
 
-    // AI-Q&A-panel — bevestigd aanbod (€39/maand, los abonnement, zie QS · Prijzen).
-    // Toont in de gratis/betaalde flow al de gespreksinterface; of ze effectief werkt
-    // hangt af van BACKEND_URL (zie bovenaan het script).
+    // AI-Q&A-panel — tijdens de scan-sessie zelf altijd gratis te proberen (geen add-on nodig).
+    // Wil de klant er nadien blijven bij kunnen, dan kiest die bij het afrekenen (zie choosePath())
+    // voor tijdelijke AI-Q&A-toegang; de bevestigingsmail bevat dan een terugkeerlink. Of dit paneel
+    // hier tijdens de sessie effectief werkt hangt af van BACKEND_URL (zie bovenaan het script).
     const aiQaHtml =
       '<div class="ai-qa-panel">' +
         '<h4>Vraag het aan de Zenpertise AI-adviseur</h4>' +
@@ -701,7 +716,7 @@
           '<input type="text" id="aiQaInput" placeholder="Bv. Waarom scoort Financieel amber?">' +
           '<button id="aiQaSendBtn">Verstuur</button>' +
         '</div>' +
-        '<div class="price-note">Onderdeel van het AI-Q&A-abonnement (€39/maand) — tijdens deze sessie gratis uit te proberen.</div>' +
+        '<div class="price-note">Gratis uit te proberen tijdens deze sessie. Wil je er nadien blijven bij kunnen? Kies bij het afrekenen voor tijdelijke AI-Q&A-toegang.</div>' +
       '</div>';
 
     reportArea.innerHTML =
@@ -901,6 +916,8 @@
     // pad kiest, laat gegevens achter. Dit stuurt naar /api/submit-lead: dat genereert een PDF
     // van het rapport en mailt die naar de aanvrager én naar info@danyuzen.com, en levert het
     // WhatsApp-nummer voor de meldlink hieronder.
+    const basePrice = PATH_BASE_PRICES[path] || 0;
+
     confirmEl.innerHTML =
       '<div class="path-confirm">' +
         '<div style="font-weight:700;margin-bottom:8px;">Rapport hierboven ontgrendeld. Laat je gegevens achter zodat we je het rapport per mail bezorgen' +
@@ -911,14 +928,29 @@
           '<input type="email" id="leadEmail" placeholder="E-mailadres" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
           '<input type="tel" id="leadTelefoon" placeholder="GSM-nummer (optioneel, voor telefonisch contact)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
         '</div>' +
+        '<div class="qa-addon-picker">' +
+          '<div class="qa-addon-title">AI-Q&A-toegang na vandaag (optioneel)</div>' +
+          '<label><input type="radio" name="qaAddon" value="" checked> Geen — enkel het rapport</label>' +
+          '<label><input type="radio" name="qaAddon" value="4weken"> ' + escapeHtml(QA_ADDON_LABELS_JS["4weken"]) + ' (+€' + QA_ADDON_PRICES_JS["4weken"] + ')</label>' +
+          '<label><input type="radio" name="qaAddon" value="8weken"> ' + escapeHtml(QA_ADDON_LABELS_JS["8weken"]) + ' (+€' + QA_ADDON_PRICES_JS["8weken"] + ')</label>' +
+          '<div class="qa-addon-total">Totaal: €<span id="qaAddonTotalPrice">' + basePrice + '</span></div>' +
+        '</div>' +
         '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#556;line-height:1.4;margin-bottom:12px;cursor:pointer;">' +
           '<input type="checkbox" id="leadConsent" style="margin-top:2px;flex-shrink:0;">' +
           '<span>Ik geef Zenpertise toestemming om mijn naam, e-mailadres' + (path === "consult" ? " en GSM-nummer" : "") + ' te gebruiken om mij het scanrapport te bezorgen' +
-          (path === "consult" ? " en telefonisch contact op te nemen" : "") + '. Zie onze <a href="privacyverklaring.html">privacyverklaring</a> en <a href="algemene-voorwaarden.html">algemene voorwaarden</a> voor meer info.</span>' +
+          (path === "consult" ? " en telefonisch contact op te nemen" : "") + '. Zie onze privacyverklaring voor meer info.</span>' +
         '</label>' +
         '<button id="leadSubmitBtn" style="background:var(--primary);color:white;border:none;border-radius:8px;padding:9px 16px;font-size:13px;cursor:pointer;">Versturen</button>' +
         '<div id="leadSubmitStatus" style="margin-top:8px;font-size:12.5px;"></div>' +
       '</div>';
+
+    const totalPriceEl = document.getElementById("qaAddonTotalPrice");
+    confirmEl.querySelectorAll('input[name="qaAddon"]').forEach((radio) => {
+      radio.addEventListener("change", () => {
+        const addonPrice = QA_ADDON_PRICES_JS[radio.value] || 0;
+        totalPriceEl.textContent = basePrice + addonPrice;
+      });
+    });
 
     const submitBtn = document.getElementById("leadSubmitBtn");
     submitBtn.addEventListener("click", submitLead);
@@ -972,6 +1004,8 @@
 
     const scoresObj = {};
     BSC.forEach((persp) => { scoresObj[persp.label] = perspectiveScore(persp); });
+    const qaAddonEl = document.querySelector('input[name="qaAddon"]:checked');
+    const qaAddonValue = (qaAddonEl && qaAddonEl.value) || "";
     const leadPayload = {
       sector: SECTORS[currentSector].name,
       path: chosenPath,
@@ -980,6 +1014,7 @@
       telefoon: telefoon || null,
       scan_scores: scoresObj,
       scan_answers: answeredQaList(),
+      qa_addon: qaAddonValue || null,
     };
 
     // Online betalen (Mollie), indien de server dat heeft ingesteld: stuurt de klant naar een
@@ -1049,7 +1084,7 @@
     if (ttsSupported) window.speechSynthesis.cancel();
     reportArea.style.display = "none";
     sectorPicker.style.display = "flex";
-    headerSub.textContent = "Kies je praktijktype om te starten — 15 vragen, 5 minuten.";
+    headerSub.textContent = "Kies je praktijktype om te starten — 12 vragen, 4 minuten.";
   }
 
   // Toont na een redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
@@ -1136,6 +1171,150 @@
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     renderPaymentScreen("pending");
+  }
+
+  // Magic-link-terugkeer voor de AI-Q&A-add-on (?token=...): geen login nodig, het token uit de
+  // link ZELF is het bewijs van toegang. Vraagt /api/qa-access op om te controleren of het token nog
+  // geldig is en om meteen de opgeslagen scan-context terug te krijgen — zonder de scan opnieuw te
+  // doorlopen. Bewust los van renderReport()/setupAiQaPanel() (die horen bij de live scan-sessie
+  // zelf, met currentSector/perspScores die hier niet bestaan) om die bestaande flow niet complexer
+  // te maken voor dit aparte, eenvoudigere geval.
+  async function renderQaReturnScreen(token) {
+    sectorPicker.style.display = "none";
+    chatArea.style.display = "none";
+    reportArea.style.display = "block";
+    reportArea.innerHTML = '<div class="path-confirm" style="margin:20px;">Toegang wordt gecontroleerd...</div>';
+    headerSub.textContent = "AI-Q&A-toegang wordt gecontroleerd...";
+
+    if (!BACKEND_URL) {
+      renderQaReturnExpired("Deze functie is nu niet beschikbaar (geen live server geconfigureerd).");
+      return;
+    }
+
+    try {
+      const res = await fetch(BACKEND_URL + "/api/qa-access?token=" + encodeURIComponent(token));
+      if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+      const data = await res.json();
+      if (!data.valid) {
+        renderQaReturnExpired("Deze AI-Q&A-toegangslink is niet (meer) geldig — mogelijk is de toegangsperiode verlopen.");
+        return;
+      }
+
+      const daysLeft = data.expires_at
+        ? Math.max(0, Math.ceil((new Date(data.expires_at) - new Date()) / (1000 * 60 * 60 * 24)))
+        : null;
+
+      reportArea.innerHTML =
+        '<div class="report">' +
+          '<h2>Welkom terug' + (data.naam ? ", " + escapeHtml(data.naam) : "") + '</h2>' +
+          '<div class="sub">' + escapeHtml(data.sector || "") + 'praktijk' +
+          (daysLeft !== null ? ' &middot; nog ' + daysLeft + ' dag' + (daysLeft === 1 ? "" : "en") + ' toegang' : '') +
+          '</div>' +
+          '<div class="next-steps"><div id="qaReturnPanel"></div></div>' +
+        '</div>';
+      headerSub.textContent = "Stel je vraag aan de AI-adviseur.";
+
+      const panelEl = document.getElementById("qaReturnPanel");
+      panelEl.innerHTML =
+        '<div class="ai-qa-panel">' +
+          '<h4>Vraag het aan de Zenpertise AI-adviseur</h4>' +
+          '<p class="sub">24/7 beschikbaar voor vragen over jouw scanresultaten en de toolkit.</p>' +
+          '<div class="ai-disclosure">⚠️ Je chat hier met een AI-systeem (aangedreven door Claude van Anthropic), ' +
+          'niet met een medewerker van Zenpertise. Antwoorden worden automatisch gegenereerd, kunnen fouten bevatten ' +
+          'en vormen geen fiscaal, medisch of juridisch advies. Voer hier geen patiëntgegevens, medische dossiers of ' +
+          'andere gevoelige persoonsgegevens in — enkel vragen over je eigen praktijkvoering en scanresultaten.</div>' +
+          '<div class="ai-msgs" id="aiQaMsgs"></div>' +
+          '<div class="row">' +
+            '<input type="text" id="aiQaInput" placeholder="Bv. Waarom scoort Financieel amber?">' +
+            '<button id="aiQaSendBtn">Verstuur</button>' +
+          '</div>' +
+        '</div>';
+
+      setupAiQaPanelForToken(token);
+
+      const restartBtn = document.createElement("button");
+      restartBtn.className = "restart-btn";
+      restartBtn.style.margin = "0 20px 20px";
+      restartBtn.textContent = "← Nieuwe scan starten";
+      restartBtn.onclick = () => { window.location.href = window.location.pathname; };
+      reportArea.appendChild(restartBtn);
+    } catch (err) {
+      renderQaReturnExpired("Kon je toegang niet controleren (" + err.message + "). Probeer de link straks opnieuw.");
+    }
+  }
+
+  function renderQaReturnExpired(message) {
+    reportArea.innerHTML =
+      '<div class="path-confirm" style="margin:20px;">' +
+        '<div style="font-weight:700;margin-bottom:8px;">' + escapeHtml(message) + '</div>' +
+        '<p style="font-size:13px;color:#556;line-height:1.6;margin:0;">Neem gerust rechtstreeks contact met ons op als je nog vragen hebt.</p>' +
+      '</div>';
+    const restartBtn = document.createElement("button");
+    restartBtn.className = "restart-btn";
+    restartBtn.style.margin = "0 20px 20px";
+    restartBtn.textContent = "← Naar de Quick Scan";
+    restartBtn.onclick = () => { window.location.href = window.location.pathname; };
+    reportArea.appendChild(restartBtn);
+    headerSub.textContent = "Toegangslink niet geldig.";
+  }
+
+  // Zelfde gespreksinterface als setupAiQaPanel() tijdens de live scan-sessie, maar dan voor een
+  // terugkerend bezoek via de magic link: stuurt enkel het token mee (geen scores/antwoorden vanuit
+  // deze pagina-sessie, die bestaan hier niet) — de backend haalt de opgeslagen scan-context zelf op
+  // aan de hand van het token (zie /api/qa-access-toelichting in main.py).
+  let aiQaReturnHistory = [];
+  function setupAiQaPanelForToken(token) {
+    const msgsEl = document.getElementById("aiQaMsgs");
+    const inputEl2 = document.getElementById("aiQaInput");
+    const sendBtn2 = document.getElementById("aiQaSendBtn");
+    if (!msgsEl || !inputEl2 || !sendBtn2) return;
+
+    aiQaReturnHistory = [];
+
+    function addAiMsg(text, cls) {
+      const div = document.createElement("div");
+      div.className = "ai-msg " + cls;
+      div.textContent = text;
+      msgsEl.appendChild(div);
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+
+    async function sendAiQa() {
+      const text = inputEl2.value.trim();
+      if (!text) return;
+      addAiMsg(text, "user");
+      aiQaReturnHistory.push({ role: "user", content: text });
+      inputEl2.value = "";
+      sendBtn2.disabled = true;
+
+      try {
+        const res = await fetch(BACKEND_URL + "/api/qa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sector: "",
+            history: aiQaReturnHistory.slice(0, -1),
+            message: text,
+            token: token,
+          }),
+        });
+        if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+        const data = await res.json();
+        addAiMsg(data.reply, "bot");
+        aiQaReturnHistory.push({ role: "assistant", content: data.reply });
+        if (data.expired) {
+          inputEl2.disabled = true;
+          sendBtn2.disabled = true;
+        }
+      } catch (err) {
+        addAiMsg("Er ging iets mis bij het ophalen van een antwoord (" + err.message + "). Probeer het later opnieuw.", "bot");
+      } finally {
+        if (!inputEl2.disabled) sendBtn2.disabled = false;
+      }
+    }
+
+    sendBtn2.addEventListener("click", sendAiQa);
+    inputEl2.addEventListener("keydown", (e) => { if (e.key === "Enter") sendAiQa(); });
   }
 
   function escapeHtml(str) {
@@ -1267,12 +1446,23 @@
   accessCodeBtn.addEventListener("click", tryUnlock);
   accessCodeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
 
-  let alreadyUnlocked = false;
-  try { alreadyUnlocked = sessionStorage.getItem(ACCESS_STORAGE_KEY) === "1"; } catch (e) { /* negeren */ }
-  if (alreadyUnlocked) {
-    unlockApp();
+  // AI-Q&A-add-on magic link (?token=...): het token zelf is het bewijs van (betaalde) toegang, dus
+  // een klant die zo terugkeert slaat zowel de scan als de ZEN2026-toegangscode hierboven over —
+  // anders zou een betalende klant alsnog het codewoord nodig hebben om bij zijn eigen chat te
+  // komen. Deze check loopt daarom vóór de gewone gate-logica.
+  const qaReturnToken = new URLSearchParams(window.location.search).get("token");
+  if (qaReturnToken) {
+    accessGateEl.style.display = "none";
+    appRootEl.style.display = "block";
+    renderQaReturnScreen(qaReturnToken);
   } else {
-    accessCodeInput.focus();
+    let alreadyUnlocked = false;
+    try { alreadyUnlocked = sessionStorage.getItem(ACCESS_STORAGE_KEY) === "1"; } catch (e) { /* negeren */ }
+    if (alreadyUnlocked) {
+      unlockApp();
+    } else {
+      accessCodeInput.focus();
+    }
   }
 })();
 </script>
