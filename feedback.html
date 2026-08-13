@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zenpertise — Testfeedback</title>
+<style>
+  :root {
+    --primary: #2f6f5e; --primary-dark: #234f42; --bg: #f4f7f6;
+    --border: #dbe4e1; --red: #c0392b; --text: #1f2d29;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); display:flex; justify-content:center; padding:24px; }
+  .card { width:100%; max-width:620px; background:white; border-radius:14px; box-shadow:0 2px 14px rgba(0,0,0,0.06); border:1px solid var(--border); overflow:hidden; }
+  .header { background:var(--primary); color:white; padding:20px 24px; }
+  .header h1 { margin:0 0 4px; font-size:19px; }
+  .header p { margin:0; font-size:13px; opacity:0.9; }
+  .body { padding:22px 24px; }
+  .intro { font-size:13px; color:#556; line-height:1.6; margin-bottom:20px; }
+  .field { margin-bottom:16px; }
+  .field label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  .field input[type=text], .field input[type=email], .field textarea {
+    width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--border); font-size:13px; font-family:inherit;
+  }
+  .field textarea { resize:vertical; min-height:70px; }
+  .question { border-top:1px solid var(--border); padding:16px 0; }
+  .question:first-of-type { border-top:2px solid var(--border); margin-top:6px; }
+  .question .q-label { font-size:13.5px; font-weight:600; margin-bottom:10px; line-height:1.4; }
+  .scale { display:flex; gap:8px; }
+  .scale label { flex:1; text-align:center; }
+  .scale input { display:none; }
+  .scale span {
+    display:block; padding:9px 0; border:1px solid var(--border); border-radius:8px; font-size:13px; font-weight:600;
+    cursor:pointer; color:#556; user-select:none; transition:all .12s ease;
+  }
+  .scale input:checked + span { background:var(--primary); border-color:var(--primary); color:white; }
+  .scale-caption { display:flex; justify-content:space-between; font-size:10.5px; color:#889; margin-top:4px; }
+  .submit-btn {
+    width:100%; background:var(--primary); color:white; border:none; border-radius:10px; padding:12px 16px;
+    font-size:14px; font-weight:600; cursor:pointer; margin-top:8px;
+  }
+  .submit-btn:hover { background:var(--primary-dark); }
+  .submit-btn:disabled { opacity:0.6; cursor:default; }
+  #statusMsg { margin-top:12px; font-size:13px; line-height:1.5; }
+  .footnote { font-size:11px; color:#889; margin-top:18px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>Bedankt voor het testen 🙏</h1>
+    <p>Deel je bevindingen — dit duurt minder dan 2 minuten.</p>
+  </div>
+  <div class="body">
+    <div class="intro">
+      Je hebt de Zenpertise Quick Scan gratis getest. We willen de tool graag verbeteren vóór de
+      echte lancering — je eerlijke mening helpt daar enorm bij. Elke vraag beantwoord je met een
+      score van 1 (slecht) tot 5 (uitmuntend).
+    </div>
+
+    <form id="feedbackForm">
+      <div class="field">
+        <label for="naam">Naam (optioneel)</label>
+        <input type="text" id="naam" placeholder="Je naam">
+      </div>
+      <div class="field">
+        <label for="email">E-mailadres (optioneel)</label>
+        <input type="email" id="email" placeholder="jij@voorbeeld.be">
+      </div>
+      <div class="field">
+        <label for="sector">Praktijktype (optioneel)</label>
+        <input type="text" id="sector" placeholder="bv. Kinesist, Tandarts, ...">
+      </div>
+
+      <div id="questionsWrap"></div>
+
+      <div class="field" style="margin-top:6px;">
+        <label for="opmerkingen">Opmerkingen of bugs (optioneel)</label>
+        <textarea id="opmerkingen" placeholder="Wat viel je op? Liep er iets fout? Wat mis je?"></textarea>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">Feedback versturen</button>
+      <div id="statusMsg"></div>
+    </form>
+
+    <div class="footnote">Zenpertise / DanYuZen — je gegevens worden enkel gebruikt om deze feedback te kunnen opvolgen.</div>
+  </div>
+</div>
+
+<script>
+  const BACKEND_URL = "https://zenpertise-backend.onrender.com";
+
+  const QUESTIONS = [
+    { field: "score_gebruiksvriendelijkheid", label: "Hoe gebruiksvriendelijk was de Quick Scan zelf (de vragenlijst)?" },
+    { field: "score_relevantie_vragen", label: "Hoe relevant/herkenbaar waren de scanvragen voor jouw praktijk?" },
+    { field: "score_duidelijkheid_rapport", label: "Hoe duidelijk en overzichtelijk was het rapport dat je ontving?" },
+    { field: "score_waarde_stappenplan", label: "Hoe waardevol waren de concrete verbeterpunten/het stappenplan?" },
+    { field: "score_juistheid_scores", label: "Hoe herkenbaar/correct vond je de scores die je kreeg?" },
+    { field: "score_ai_chatbot", label: "Hoe tevreden was je over de antwoorden van de AI-chatbot?" },
+    { field: "score_snelheid", label: "Hoe vlot/snel werkte de tool (laadtijden, geen haperingen)?" },
+    { field: "score_duidelijkheid_website", label: "Hoe duidelijk was de uitleg op de website (wist je meteen wat je kreeg)?" },
+    { field: "score_prijs_waarde", label: "Hoe redelijk vond je de prijs (€25) t.o.v. wat je ervoor kreeg?" },
+    { field: "score_aanbeveling", label: "Hoe waarschijnlijk zou je Zenpertise aanbevelen aan een collega?" },
+  ];
+
+  const questionsWrap = document.getElementById("questionsWrap");
+  QUESTIONS.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "question";
+    let scaleHtml = '<div class="scale">';
+    for (let v = 1; v <= 5; v++) {
+      scaleHtml += `<label><input type="radio" name="${q.field}" value="${v}" ${v === 3 ? "checked" : ""}><span>${v}</span></label>`;
+    }
+    scaleHtml += '</div><div class="scale-caption"><span>1 · slecht</span><span>5 · uitmuntend</span></div>';
+    div.innerHTML = `<div class="q-label">${i + 1}. ${q.label}</div>${scaleHtml}`;
+    questionsWrap.appendChild(div);
+  });
+
+  // Vooraf invullen als naam/email meegegeven zijn via de link (bv. vanuit de bevestigingsmail
+  // na een gratis testcode) — scheelt opnieuw typen voor wie net de tool gebruikt heeft.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("naam")) document.getElementById("naam").value = params.get("naam");
+  if (params.get("email")) document.getElementById("email").value = params.get("email");
+  if (params.get("sector")) document.getElementById("sector").value = params.get("sector");
+
+  document.getElementById("feedbackForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    const statusEl = document.getElementById("statusMsg");
+    btn.disabled = true;
+    statusEl.style.color = "#556";
+    statusEl.textContent = "Bezig met versturen...";
+
+    const payload = {
+      naam: document.getElementById("naam").value.trim() || null,
+      email: document.getElementById("email").value.trim() || null,
+      sector: document.getElementById("sector").value.trim() || null,
+      opmerkingen: document.getElementById("opmerkingen").value.trim() || null,
+    };
+    QUESTIONS.forEach((q) => {
+      const checked = document.querySelector(`input[name="${q.field}"]:checked`);
+      payload[q.field] = checked ? parseInt(checked.value, 10) : 3;
+    });
+
+    try {
+      const res = await fetch(BACKEND_URL + "/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+      document.getElementById("feedbackForm").style.display = "none";
+      statusEl.style.color = "#234f42";
+      statusEl.style.fontSize = "14px";
+      statusEl.textContent = "Bedankt! Je feedback is verstuurd — dit helpt ons enorm.";
+    } catch (err) {
+      statusEl.style.color = "var(--red)";
+      statusEl.textContent = "Versturen mislukt (" + err.message + "). Probeer opnieuw.";
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

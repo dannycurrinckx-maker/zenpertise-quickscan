@@ -935,6 +935,13 @@
           '<label><input type="radio" name="qaAddon" value="8weken"> ' + escapeHtml(QA_ADDON_LABELS_JS["8weken"]) + ' (+€' + QA_ADDON_PRICES_JS["8weken"] + ')</label>' +
           '<div class="qa-addon-total">Totaal: €<span id="qaAddonTotalPrice">' + basePrice + '</span></div>' +
         '</div>' +
+        '<div style="margin-bottom:10px;">' +
+          '<a href="#" id="promoToggleLink" style="font-size:12px;color:#667;text-decoration:underline;">Heb je een gratis testcode?</a>' +
+          '<div id="promoCodeWrap" style="display:none;margin-top:6px;">' +
+            '<input type="text" id="leadPromoCode" placeholder="Testcode" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;width:100%;box-sizing:border-box;">' +
+            '<div style="font-size:11px;color:#889;margin-top:4px;">Geldig voor het digitale rapport — geeft het rapport gratis vrij plus 1 dag AI-Q&A-toegang.</div>' +
+          '</div>' +
+        '</div>' +
         '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#556;line-height:1.4;margin-bottom:12px;cursor:pointer;">' +
           '<input type="checkbox" id="leadConsent" style="margin-top:2px;flex-shrink:0;">' +
           '<span>Ik geef Zenpertise toestemming om mijn naam, e-mailadres' + (path === "consult" ? " en GSM-nummer" : "") + ' te gebruiken om mij het scanrapport te bezorgen' +
@@ -955,6 +962,17 @@
     const submitBtn = document.getElementById("leadSubmitBtn");
     submitBtn.addEventListener("click", submitLead);
     document.getElementById("leadTelefoon").addEventListener("keydown", (e) => { if (e.key === "Enter") submitLead(); });
+
+    const promoToggleLink = document.getElementById("promoToggleLink");
+    const promoCodeWrap = document.getElementById("promoCodeWrap");
+    if (promoToggleLink && promoCodeWrap) {
+      promoToggleLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        const isHidden = promoCodeWrap.style.display === "none";
+        promoCodeWrap.style.display = isHidden ? "block" : "none";
+        if (isHidden) document.getElementById("leadPromoCode").focus();
+      });
+    }
   }
 
   // Stuurt naam/e-mail/telefoon + scores + antwoorden naar de backend. Die genereert de PDF en
@@ -1016,6 +1034,66 @@
       scan_answers: answeredQaList(),
       qa_addon: qaAddonValue || null,
     };
+
+    // Gratis testcode: als er iets is ingevuld, gaan we NIET naar Mollie of het manuele fallback-
+    // pad — we roepen rechtstreeks /api/redeem-promo aan. Enkel geldig voor het digitale rapport
+    // (de server controleert dit ook, dit is puur een snellere client-side check).
+    const promoCodeEl = document.getElementById("leadPromoCode");
+    const promoCode = (promoCodeEl && promoCodeEl.value.trim()) || "";
+    if (promoCode) {
+      if (chosenPath !== "digital") {
+        statusEl.textContent = "De gratis testcode geldt enkel voor het digitale rapport.";
+        statusEl.style.color = "var(--red)";
+        btn.disabled = false;
+        return;
+      }
+      try {
+        const res = await fetch(BACKEND_URL + "/api/redeem-promo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.assign({}, leadPayload, { promo_code: promoCode })),
+        });
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.detail || ("Serverfout (" + res.status + ")"));
+        }
+        const data = await res.json();
+        statusEl.textContent = "Testcode toegepast — je ontvangt het rapport gratis per mail, met 1 dag AI-Q&A-toegang.";
+        statusEl.style.color = "#234f42";
+
+        // Rechtstreekse link naar het feedbackformulier (feedback.html leeft naast dit bestand in
+        // dezelfde repo/site) — naam/e-mail/sector alvast ingevuld zodat de tester niet opnieuw
+        // hoeft te typen. Staat ook al in de bevestigingsmail, maar hier is 'm meteen zichtbaar.
+        const fbLink = document.createElement("a");
+        fbLink.href = "feedback.html?naam=" + encodeURIComponent(naam) + "&email=" + encodeURIComponent(email) + "&sector=" + encodeURIComponent(SECTORS[currentSector].name);
+        fbLink.target = "_blank";
+        fbLink.rel = "noopener";
+        fbLink.textContent = "Laat je bevindingen achter (2 min)";
+        fbLink.style.cssText = "display:inline-block;margin-top:10px;background:var(--primary);color:white;border-radius:8px;padding:9px 14px;font-size:13px;text-decoration:none;font-weight:600;";
+        statusEl.appendChild(document.createElement("br"));
+        statusEl.appendChild(fbLink);
+
+        if (data.whatsapp_number || whatsappNumber) {
+          const number = data.whatsapp_number || whatsappNumber;
+          const waMessage = "Nieuwe Zenpertise Quick Scan-testaanvraag (gratis code): " + naam + " (" + SECTORS[currentSector].name + "praktijk). Contact: " + email + (telefoon ? ", " + telefoon : "") + ".";
+          const waLink = document.createElement("a");
+          waLink.href = "https://wa.me/" + number + "?text=" + encodeURIComponent(waMessage);
+          waLink.target = "_blank";
+          waLink.rel = "noopener";
+          waLink.textContent = "Meld dit ook via WhatsApp";
+          waLink.style.cssText = "display:inline-block;margin-top:10px;background:#25D366;color:white;border-radius:8px;padding:9px 14px;font-size:13px;text-decoration:none;font-weight:600;";
+          statusEl.appendChild(document.createElement("br"));
+          statusEl.appendChild(waLink);
+        }
+        naamEl.disabled = emailEl.disabled = telefoonEl.disabled = true;
+        btn.style.display = "none";
+      } catch (err) {
+        statusEl.textContent = "Testcode mislukt (" + err.message + ").";
+        statusEl.style.color = "var(--red)";
+        btn.disabled = false;
+      }
+      return;
+    }
 
     // Online betalen (Mollie), indien de server dat heeft ingesteld: stuurt de klant naar een
     // beveiligde Mollie-checkoutpagina. Het rapport wordt pas gegenereerd en gemaild zodra de
