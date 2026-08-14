@@ -110,6 +110,50 @@
   .ai-qa-panel .price-note { font-size:11px; color:#889; margin-top:8px; }
   .ai-qa-panel .ai-disclosure { font-size:12px; color:#7a5b00; background:#fff8e6; border:1px solid #f0dfa0; border-radius:8px; padding:9px 11px; margin-bottom:10px; line-height:1.45; }
 
+  /* AI-Q&A pop-up — enkel voor de betaalde, post-scan terugkeer-flow (magic link, zie
+     renderQaReturnScreen()). De gratis proefsessie tijdens de scan zelf blijft het bestaande
+     ingebedde .ai-qa-panel hierboven; bewust niet aangeraakt. Eigen merkkleuren (var(--primary)/
+     var(--primary-dark)), geen WhatsApp-groen — enkel de vertrouwde bubble-structuur is
+     "messaging-app"-achtig, de kleur is en blijft Zenpertise-eigen. */
+  .qa-fab {
+    position:fixed; bottom:22px; right:22px; width:56px; height:56px; border-radius:50%;
+    background:var(--primary); color:white; border:none; box-shadow:0 4px 18px rgba(35,79,66,0.35);
+    font-size:23px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:1001;
+  }
+  .qa-fab:hover { background:var(--primary-dark); }
+  .qa-popup-overlay {
+    position:fixed; inset:0; background:rgba(15,30,25,0.28); display:none;
+    align-items:flex-end; justify-content:flex-end; padding:24px; z-index:1000;
+  }
+  .qa-popup-overlay.open { display:flex; }
+  .qa-popup {
+    width:380px; max-width:100%; height:600px; max-height:calc(100vh - 48px); background:white;
+    border-radius:18px; box-shadow:0 12px 40px rgba(0,0,0,0.22); display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  @media (max-width:480px) {
+    .qa-popup-overlay { padding:0; }
+    .qa-popup { width:100%; height:100%; max-height:none; border-radius:0; }
+  }
+  .qa-popup-header { background:var(--primary-dark); color:white; padding:14px 16px; display:flex; align-items:center; gap:11px; flex-shrink:0; }
+  .qa-popup-avatar { width:38px; height:38px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14.5px; flex-shrink:0; }
+  .qa-popup-header-text { flex:1; min-width:0; }
+  .qa-popup-header-text .name { font-size:14.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .qa-popup-header-text .status { font-size:11.5px; opacity:0.85; display:flex; align-items:center; gap:5px; margin-top:1px; }
+  .qa-popup-header-text .status .dot { width:7px; height:7px; border-radius:50%; background:#6fcf97; display:inline-block; flex-shrink:0; }
+  .qa-popup-close { background:rgba(255,255,255,0.15); border:none; color:white; width:28px; height:28px; border-radius:50%; font-size:14px; cursor:pointer; flex-shrink:0; line-height:1; }
+  .qa-popup-close:hover { background:rgba(255,255,255,0.28); }
+  .qa-popup-disclosure { font-size:11px; color:#7a5b00; background:#fff8e6; border-bottom:1px solid #f0dfa0; padding:8px 16px; line-height:1.4; flex-shrink:0; }
+  .qa-popup-canvas { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; background:#e2ece6; }
+  .qa-popup-msg { max-width:82%; padding:9px 13px; border-radius:14px; font-size:13.5px; line-height:1.45; white-space:pre-wrap; }
+  .qa-popup-msg.bot { align-self:flex-start; background:white; border-bottom-left-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+  .qa-popup-msg.user { align-self:flex-end; background:var(--primary); color:white; border-bottom-right-radius:4px; }
+  .qa-popup-input-row { display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--border); background:white; flex-shrink:0; }
+  .qa-popup-input-row input { flex:1; padding:10px 13px; border-radius:10px; border:1px solid var(--border); font-size:13.5px; }
+  .qa-popup-input-row button { background:var(--primary); color:white; border:none; border-radius:10px; padding:0 16px; font-size:13.5px; cursor:pointer; }
+  .qa-popup-input-row button:hover { background:var(--primary-dark); }
+  .qa-popup-input-row button:disabled { background:#aab; cursor:not-allowed; }
+
   .qa-addon-picker { border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:12px; background:#fbfaf7; }
   .qa-addon-picker .qa-addon-title { font-weight:700; font-size:13px; margin-bottom:8px; color:#234f42; }
   .qa-addon-picker label { display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:#334; line-height:1.4; margin-bottom:7px; cursor:pointer; }
@@ -154,7 +198,7 @@
     <div class="header">
       <button id="voiceToggle" class="voice-toggle" type="button" title="Bot spreekt vragen uit — klik om te dempen" aria-label="Spraakweergave aan/uit">🔊</button>
       <h1>Zenpertise Quick Scan</h1>
-      <p id="headerSub">Kies je praktijktype om te starten — 12 vragen, 4 minuten.</p>
+      <p id="headerSub">Kies je praktijktype om te starten — 15 vragen, 4 minuten.</p>
     </div>
     <div id="sectorPicker" class="sector-picker"></div>
     <div id="chatArea" style="display:none;">
@@ -1162,7 +1206,7 @@
     if (ttsSupported) window.speechSynthesis.cancel();
     reportArea.style.display = "none";
     sectorPicker.style.display = "flex";
-    headerSub.textContent = "Kies je praktijktype om te starten — 12 vragen, 4 minuten.";
+    headerSub.textContent = "Kies je praktijktype om te starten — 15 vragen, 4 minuten.";
   }
 
   // Toont na een redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
@@ -1288,27 +1332,15 @@
           '<div class="sub">' + escapeHtml(data.sector || "") + 'praktijk' +
           (daysLeft !== null ? ' &middot; nog ' + daysLeft + ' dag' + (daysLeft === 1 ? "" : "en") + ' toegang' : '') +
           '</div>' +
-          '<div class="next-steps"><div id="qaReturnPanel"></div></div>' +
+          '<div class="path-confirm" style="margin-top:14px;">Je AI-adviseur staat voor je klaar — klik rechtsonder op het chatpictogram om te starten.</div>' +
         '</div>';
       headerSub.textContent = "Stel je vraag aan de AI-adviseur.";
 
-      const panelEl = document.getElementById("qaReturnPanel");
-      panelEl.innerHTML =
-        '<div class="ai-qa-panel">' +
-          '<h4>Vraag het aan de Zenpertise AI-adviseur</h4>' +
-          '<p class="sub">24/7 beschikbaar voor vragen over jouw scanresultaten en de toolkit.</p>' +
-          '<div class="ai-disclosure">⚠️ Je chat hier met een AI-systeem (aangedreven door Claude van Anthropic), ' +
-          'niet met een medewerker van Zenpertise. Antwoorden worden automatisch gegenereerd, kunnen fouten bevatten ' +
-          'en vormen geen fiscaal, medisch of juridisch advies. Voer hier geen patiëntgegevens, medische dossiers of ' +
-          'andere gevoelige persoonsgegevens in — enkel vragen over je eigen praktijkvoering en scanresultaten.</div>' +
-          '<div class="ai-msgs" id="aiQaMsgs"></div>' +
-          '<div class="row">' +
-            '<input type="text" id="aiQaInput" placeholder="Bv. Waarom scoort Financieel amber?">' +
-            '<button id="aiQaSendBtn">Verstuur</button>' +
-          '</div>' +
-        '</div>';
-
-      setupAiQaPanelForToken(token);
+      // Chat opent als los pop-upscherm (zie .qa-fab/.qa-popup-* hierboven) i.p.v. ingebed in de
+      // pagina — enkel voor deze betaalde, post-scan terugkeer-flow. data.naam komt rechtstreeks
+      // uit het opgeslagen qa-access-record (zie /api/qa-access in main.py), dus de begroeting
+      // spreekt altijd de juiste persoon aan, ook na een browser-herstart via de magic link.
+      openQaPopup(token, data.naam || "");
 
       const restartBtn = document.createElement("button");
       restartBtn.className = "restart-btn";
@@ -1336,63 +1368,159 @@
     headerSub.textContent = "Toegangslink niet geldig.";
   }
 
-  // Zelfde gespreksinterface als setupAiQaPanel() tijdens de live scan-sessie, maar dan voor een
+  // AI-Q&A pop-up — betaalde, post-scan terugkeer-flow (magic link). Zelfde backend-aanroep als
+  // de gratis proefsessie tijdens de scan (setupAiQaPanel hierboven, ongewijzigd), maar dan als
+  // los scherm i.p.v. ingebed in de pagina: een vaste knop rechtsonder (.qa-fab) opent een
+  // overlay (.qa-popup-overlay) met de vertrouwde chat-bubbelstructuur — eigen merkkleuren, geen
+  // WhatsApp-branding. De DOM wordt één keer aangemaakt (buildQaPopup) en blijft daarna gewoon
+  // open/dicht geplooid, zodat de gespreksgeschiedenis intact blijft bij sluiten/heropenen.
+  let aiQaReturnHistory = [];
+  let qaPopupBuilt = false;
+  let qaPopupWelcomed = false;
+
+  // Voor het avatar-rondje in de popup-header: initialen uit de voornaam + (indien aanwezig)
+  // laatste naamdeel, bv. "Danny Currinckx" -> "DC". Geen naam bekend -> "Z" (Zenpertise) als
+  // nette fallback i.p.v. een leeg rondje.
+  function qaInitials(naam) {
+    const parts = (naam || "").trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "Z";
+    const first = parts[0][0] || "";
+    const last = parts.length > 1 ? (parts[parts.length - 1][0] || "") : "";
+    return (first + last).toUpperCase();
+  }
+
+  function buildQaPopup(naam) {
+    if (qaPopupBuilt) return;
+    qaPopupBuilt = true;
+
+    const fab = document.createElement("button");
+    fab.id = "qaFab";
+    fab.className = "qa-fab";
+    fab.type = "button";
+    fab.title = "Open AI-adviseur";
+    fab.setAttribute("aria-label", "Open AI-adviseur chat");
+    fab.textContent = "💬";
+    document.body.appendChild(fab);
+
+    const overlay = document.createElement("div");
+    overlay.id = "qaPopupOverlay";
+    overlay.className = "qa-popup-overlay";
+    overlay.innerHTML =
+      '<div class="qa-popup">' +
+        '<div class="qa-popup-header">' +
+          '<div class="qa-popup-avatar" id="qaPopupAvatar">' + escapeHtml(qaInitials(naam)) + '</div>' +
+          '<div class="qa-popup-header-text">' +
+            '<div class="name">Zenpertise AI-adviseur</div>' +
+            '<div class="status"><span class="dot"></span><span>Actief</span></div>' +
+          '</div>' +
+          '<button class="qa-popup-close" id="qaPopupClose" type="button" aria-label="Sluiten">✕</button>' +
+        '</div>' +
+        '<div class="qa-popup-disclosure">⚠️ Je chat hier met een AI-systeem (aangedreven door Claude van Anthropic), ' +
+        'niet met een medewerker van Zenpertise. Antwoorden worden automatisch gegenereerd, kunnen fouten bevatten ' +
+        'en vormen geen fiscaal, medisch of juridisch advies. Voer hier geen patiëntgegevens, medische dossiers of ' +
+        'andere gevoelige persoonsgegevens in.</div>' +
+        '<div class="qa-popup-canvas" id="qaPopupCanvas"></div>' +
+        '<div class="qa-popup-input-row">' +
+          '<input type="text" id="qaPopupInput" placeholder="Typ je vraag...">' +
+          '<button id="qaPopupSendBtn">Verstuur</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    fab.addEventListener("click", () => toggleQaPopup(true));
+    document.getElementById("qaPopupClose").addEventListener("click", () => toggleQaPopup(false));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) toggleQaPopup(false); });
+  }
+
+  function toggleQaPopup(open) {
+    const overlay = document.getElementById("qaPopupOverlay");
+    if (!overlay) return;
+    overlay.classList.toggle("open", open);
+    if (open) {
+      const inputEl = document.getElementById("qaPopupInput");
+      if (inputEl) inputEl.focus();
+    }
+  }
+
+  function addQaPopupMsg(text, cls) {
+    const canvas = document.getElementById("qaPopupCanvas");
+    if (!canvas) return;
+    const div = document.createElement("div");
+    div.className = "qa-popup-msg " + cls;
+    div.textContent = text;
+    canvas.appendChild(div);
+    canvas.scrollTop = canvas.scrollHeight;
+  }
+
+  // Bouwt (indien nodig) de popup, toont een eenmalige, gepersonaliseerde begroeting met de
+  // voornaam uit data.naam, bindt de verstuur-events, en opent meteen — zodat wie via de magic
+  // link terugkeert direct in gesprek kan, zonder eerst zelf de knop te moeten vinden.
+  function openQaPopup(token, naam) {
+    buildQaPopup(naam);
+
+    if (!qaPopupWelcomed) {
+      qaPopupWelcomed = true;
+      const greetName = naam ? naam.split(/\s+/)[0] : "";
+      addQaPopupMsg(
+        (greetName ? "Hoi " + greetName + "! 👋 " : "Hoi! 👋 ") +
+        "Waarmee kan ik je helpen vandaag? Stel gerust een vraag over je scanresultaten of de toolkit.",
+        "bot"
+      );
+    }
+
+    const inputEl = document.getElementById("qaPopupInput");
+    const sendBtn = document.getElementById("qaPopupSendBtn");
+    if (inputEl && !inputEl.dataset.bound) {
+      inputEl.dataset.bound = "1";
+      inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter") sendQaPopupMessage(token); });
+    }
+    if (sendBtn && !sendBtn.dataset.bound) {
+      sendBtn.dataset.bound = "1";
+      sendBtn.addEventListener("click", () => sendQaPopupMessage(token));
+    }
+
+    toggleQaPopup(true);
+  }
+
+  // Zelfde backend-aanroep als setupAiQaPanel() tijdens de live scan-sessie, maar dan voor een
   // terugkerend bezoek via de magic link: stuurt enkel het token mee (geen scores/antwoorden vanuit
   // deze pagina-sessie, die bestaan hier niet) — de backend haalt de opgeslagen scan-context zelf op
-  // aan de hand van het token (zie /api/qa-access-toelichting in main.py).
-  let aiQaReturnHistory = [];
-  function setupAiQaPanelForToken(token) {
-    const msgsEl = document.getElementById("aiQaMsgs");
-    const inputEl2 = document.getElementById("aiQaInput");
-    const sendBtn2 = document.getElementById("aiQaSendBtn");
-    if (!msgsEl || !inputEl2 || !sendBtn2) return;
+  // aan de hand van het token (zie /api/qa-access in main.py).
+  async function sendQaPopupMessage(token) {
+    const inputEl = document.getElementById("qaPopupInput");
+    const sendBtn = document.getElementById("qaPopupSendBtn");
+    if (!inputEl || !sendBtn) return;
+    const text = inputEl.value.trim();
+    if (!text) return;
+    addQaPopupMsg(text, "user");
+    aiQaReturnHistory.push({ role: "user", content: text });
+    inputEl.value = "";
+    sendBtn.disabled = true;
 
-    aiQaReturnHistory = [];
-
-    function addAiMsg(text, cls) {
-      const div = document.createElement("div");
-      div.className = "ai-msg " + cls;
-      div.textContent = text;
-      msgsEl.appendChild(div);
-      msgsEl.scrollTop = msgsEl.scrollHeight;
-    }
-
-    async function sendAiQa() {
-      const text = inputEl2.value.trim();
-      if (!text) return;
-      addAiMsg(text, "user");
-      aiQaReturnHistory.push({ role: "user", content: text });
-      inputEl2.value = "";
-      sendBtn2.disabled = true;
-
-      try {
-        const res = await fetch(BACKEND_URL + "/api/qa", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sector: "",
-            history: aiQaReturnHistory.slice(0, -1),
-            message: text,
-            token: token,
-          }),
-        });
-        if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
-        const data = await res.json();
-        addAiMsg(data.reply, "bot");
-        aiQaReturnHistory.push({ role: "assistant", content: data.reply });
-        if (data.expired) {
-          inputEl2.disabled = true;
-          sendBtn2.disabled = true;
-        }
-      } catch (err) {
-        addAiMsg("Er ging iets mis bij het ophalen van een antwoord (" + err.message + "). Probeer het later opnieuw.", "bot");
-      } finally {
-        if (!inputEl2.disabled) sendBtn2.disabled = false;
+    try {
+      const res = await fetch(BACKEND_URL + "/api/qa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sector: "",
+          history: aiQaReturnHistory.slice(0, -1),
+          message: text,
+          token: token,
+        }),
+      });
+      if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+      const data = await res.json();
+      addQaPopupMsg(data.reply, "bot");
+      aiQaReturnHistory.push({ role: "assistant", content: data.reply });
+      if (data.expired) {
+        inputEl.disabled = true;
+        sendBtn.disabled = true;
       }
+    } catch (err) {
+      addQaPopupMsg("Er ging iets mis bij het ophalen van een antwoord (" + err.message + "). Probeer het later opnieuw.", "bot");
+    } finally {
+      if (!inputEl.disabled) sendBtn.disabled = false;
     }
-
-    sendBtn2.addEventListener("click", sendAiQa);
-    inputEl2.addEventListener("keydown", (e) => { if (e.key === "Enter") sendAiQa(); });
   }
 
   function escapeHtml(str) {
