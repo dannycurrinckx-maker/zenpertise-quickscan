@@ -972,6 +972,19 @@
           '<input type="email" id="leadEmail" placeholder="E-mailadres" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
           '<input type="tel" id="leadTelefoon" placeholder="GSM-nummer (optioneel, voor telefonisch contact)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;">' +
         '</div>' +
+        '<div class="practice-profile" style="margin-bottom:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#f8faf9;">' +
+          '<div style="font-weight:700;font-size:12.5px;margin-bottom:6px;">Over je praktijk (optioneel, maakt het rapport preciezer)</div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
+            '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppModelType" value="solo" checked> Solo</label>' +
+            '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppModelType" value="groep"> Groepspraktijk</label>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+            '<input type="number" min="0" step="0.1" id="ppVte" placeholder="VTE behandelaars" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '<input type="number" min="0" step="1" id="ppLocaties" placeholder="Aantal locaties" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '<input type="number" min="0" step="1" id="ppBehandelruimtes" placeholder="Behandelruimtes" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '<input type="number" min="0" step="0.1" id="ppOndersteunend" placeholder="VTE ondersteunend personeel" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+          '</div>' +
+        '</div>' +
         '<div class="qa-addon-picker">' +
           '<div class="qa-addon-title">AI-Q&A-toegang na vandaag (optioneel)</div>' +
           '<label><input type="radio" name="qaAddon" value="" checked> Geen — enkel het rapport</label>' +
@@ -1068,6 +1081,24 @@
     BSC.forEach((persp) => { scoresObj[persp.label] = perspectiveScore(persp); });
     const qaAddonEl = document.querySelector('input[name="qaAddon"]:checked');
     const qaAddonValue = (qaAddonEl && qaAddonEl.value) || "";
+
+    // Practice Profile (Sprint 1, Zenpertise Intelligence Engine v2) — bewust optioneel: een
+    // leeg profiel stuurt gewoon null-velden mee, de backend degradeert dan gracieus naar enkel
+    // Universal- + Sector-tier KPI's (zie PracticeProfile/get_active_kpis in main.py).
+    const ppModelTypeEl = document.querySelector('input[name="ppModelType"]:checked');
+    const ppVteEl = document.getElementById("ppVte");
+    const ppLocatiesEl = document.getElementById("ppLocaties");
+    const ppBehandelruimtesEl = document.getElementById("ppBehandelruimtes");
+    const ppOndersteunendEl = document.getElementById("ppOndersteunend");
+    const toNumOrNull = (el) => (el && el.value !== "" ? Number(el.value) : null);
+    const practiceProfile = {
+      model_type: (ppModelTypeEl && ppModelTypeEl.value) || null,
+      vte: toNumOrNull(ppVteEl),
+      locaties: toNumOrNull(ppLocatiesEl),
+      behandelruimtes: toNumOrNull(ppBehandelruimtesEl),
+      ondersteunend_personeel_vte: toNumOrNull(ppOndersteunendEl),
+    };
+
     const leadPayload = {
       sector: SECTORS[currentSector].name,
       path: chosenPath,
@@ -1077,6 +1108,7 @@
       scan_scores: scoresObj,
       scan_answers: answeredQaList(),
       qa_addon: qaAddonValue || null,
+      practice_profile: practiceProfile,
     };
 
     // Gratis testcode: als er iets is ingevuld, gaan we NIET naar Mollie of het manuele fallback-
