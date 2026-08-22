@@ -70,7 +70,7 @@
   .next-steps h3 { font-size:14px; margin:0 0 4px; }
   .next-steps .sub { font-size:12.5px; color:#667; margin-bottom:14px; }
   .path-anchor { font-size:12px; color:#556; background:#f4f7f6; border:1px solid var(--border); border-radius:8px; padding:8px 12px; margin-bottom:12px; }
-  .path-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .path-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
   @media (max-width:560px) { .path-grid { grid-template-columns:1fr; } }
   .path-card { border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; flex-direction:column; }
   .path-card.recommended { border-color:var(--primary); box-shadow:0 0 0 1px var(--primary); }
@@ -229,7 +229,7 @@
   // AI-Q&A-add-on — spiegelt QA_ADDON_DAYS/QA_ADDON_PRICES in de backend (main.py). Enkel voor de
   // live prijsweergave hier in de checkout; de backend rekent en int het echte bedrag (zelfde
   // "frontend toont, backend int"-principe als bij PATH_PRICES in de backend).
-  const PATH_BASE_PRICES = { digital: 25, consult: 650 };
+  const PATH_BASE_PRICES = { digital: 25, consult: 650, toolkit: 1495 };
   const QA_ADDON_PRICES_JS = { "": 0, "4weken": 15, "8weken": 25 };
   const QA_ADDON_LABELS_JS = { "4weken": "4 weken toegang tot de AI-adviseur", "8weken": "8 weken toegang, tot je herscan" };
 
@@ -795,6 +795,13 @@
               '<div class="price">€25 (herscan inbegrepen)</div>' +
               '<button data-path="digital">Kies digitaal + herscan</button>' +
             '</div>' +
+            '<div class="path-card secondary">' +
+              '<div class="path-tag">Doe-het-zelf werkboek</div>' +
+              '<h4>Modulaire Toolkit</h4>' +
+              '<p>Het volledige Zenpertise-werkboek: 6 modules met kant-en-klare tools voor elk aandachtsgebied (strategie, operaties, klantretentie, financieel, team, marketing) — zelf in te vullen, in je eigen tempo.</p>' +
+              '<div class="price">€1495 (eenmalig, alle 6 modules)</div>' +
+              '<button data-path="toolkit">Kies de Modulaire Toolkit</button>' +
+            '</div>' +
           '</div>' +
           '<div id="pathConfirm"></div>' +
           financeUploadHtml +
@@ -1063,6 +1070,8 @@
 
     const nextStepText = chosenPath === "consult"
       ? "Een Zenpertise-adviseur neemt binnen 2 werkdagen contact op."
+      : chosenPath === "toolkit"
+      ? "Het volledige werkboek zit als Excel-bestand in bijlage bij je rapport."
       : "Over 8 weken sturen we automatisch een nieuwe scan.";
 
     if (!BACKEND_URL) {
@@ -1212,7 +1221,7 @@
       if (data.whatsapp_number || whatsappNumber) {
         const number = data.whatsapp_number || whatsappNumber;
         const waMessage = "Nieuwe Zenpertise Quick Scan-aanvraag: " + naam + " (" + SECTORS[currentSector].name + "praktijk), pad: " +
-          (chosenPath === "consult" ? "Begeleidingstraject" : "Zelfstandig + herscan") + ". Contact: " + email + (telefoon ? ", " + telefoon : "") + ".";
+          (chosenPath === "consult" ? "Begeleidingstraject" : chosenPath === "toolkit" ? "Modulaire Toolkit" : "Zelfstandig + herscan") + ". Contact: " + email + (telefoon ? ", " + telefoon : "") + ".";
         const waLink = document.createElement("a");
         waLink.href = "https://wa.me/" + number + "?text=" + encodeURIComponent(waMessage);
         waLink.target = "_blank";
