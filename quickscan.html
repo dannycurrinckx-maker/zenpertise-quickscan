@@ -991,6 +991,16 @@
             '<input type="number" min="0" step="1" id="ppBehandelruimtes" placeholder="Behandelruimtes" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="0.1" id="ppOndersteunend" placeholder="VTE ondersteunend personeel" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
           '</div>' +
+          '<div style="margin-top:8px;">' +
+            '<select id="ppConventiestatus" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;background:white;">' +
+              '<option value="">Conventiestatus (optioneel)</option>' +
+              '<option value="geconventioneerd">Geconventioneerd (RIZIV-tarief)</option>' +
+              '<option value="niet-toegetreden">Niet-toegetreden (eigen tarief)</option>' +
+              '<option value="gedeeltelijk">Gedeeltelijk geconventioneerd</option>' +
+            '</select>' +
+            '<input type="number" min="0" step="0.01" id="ppEigenTarief" placeholder="Je eigen tarief per sessie (\u20ac)" style="display:none;margin-top:6px;width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '<div style="font-size:11px;color:#889;margin-top:4px;">Enkel relevant als je niet-toegetreden bent en dus zelf je tarief bepaalt \u2014 anders rekenen we met het RIZIV-sectortarief.</div>' +
+          '</div>' +
         '</div>' +
         '<div class="qa-addon-picker">' +
           '<div class="qa-addon-title">AI-Q&A-toegang na vandaag (optioneel)</div>' +
@@ -1035,6 +1045,16 @@
         const isHidden = promoCodeWrap.style.display === "none";
         promoCodeWrap.style.display = isHidden ? "block" : "none";
         if (isHidden) document.getElementById("leadPromoCode").focus();
+      });
+    }
+
+    // Conventiestatus/eigen tarief (taak #234-fix): eigen-tarief-veld enkel tonen bij
+    // "niet-toegetreden", zodat het duidelijk is wanneer het effect heeft op de \u20ac-ROI-berekening.
+    const ppConventiestatusEl = document.getElementById("ppConventiestatus");
+    const ppEigenTariefEl = document.getElementById("ppEigenTarief");
+    if (ppConventiestatusEl && ppEigenTariefEl) {
+      ppConventiestatusEl.addEventListener("change", () => {
+        ppEigenTariefEl.style.display = ppConventiestatusEl.value === "niet-toegetreden" ? "block" : "none";
       });
     }
   }
@@ -1099,6 +1119,8 @@
     const ppLocatiesEl = document.getElementById("ppLocaties");
     const ppBehandelruimtesEl = document.getElementById("ppBehandelruimtes");
     const ppOndersteunendEl = document.getElementById("ppOndersteunend");
+    const ppConventiestatusEl2 = document.getElementById("ppConventiestatus");
+    const ppEigenTariefEl2 = document.getElementById("ppEigenTarief");
     const toNumOrNull = (el) => (el && el.value !== "" ? Number(el.value) : null);
     const practiceProfile = {
       model_type: (ppModelTypeEl && ppModelTypeEl.value) || null,
@@ -1106,6 +1128,8 @@
       locaties: toNumOrNull(ppLocatiesEl),
       behandelruimtes: toNumOrNull(ppBehandelruimtesEl),
       ondersteunend_personeel_vte: toNumOrNull(ppOndersteunendEl),
+      conventiestatus: (ppConventiestatusEl2 && ppConventiestatusEl2.value) || null,
+      eigen_tarief: toNumOrNull(ppEigenTariefEl2),
     };
 
     const leadPayload = {
