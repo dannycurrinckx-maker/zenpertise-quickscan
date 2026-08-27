@@ -49,6 +49,54 @@
   .report h2 { font-size:16px; margin:0 0 4px; color:var(--primary-dark); }
   .report .sub { font-size:12.5px; color:#667; margin-bottom:16px; }
   .bsc-chart { border:1px solid var(--border); border-radius:12px; padding:10px 8px 4px; margin-bottom:16px; background:white; }
+
+  /* "ZENPERTISE OS"-stijl dashboard rond de BSC-ringgrafiek */
+  .zos-dashboard { background:#faf7f1; border:1px solid var(--border); border-radius:16px; padding:22px 20px; margin-bottom:18px; display:grid; grid-template-columns: 1fr 1.05fr 1fr; gap:20px; align-items:start; }
+  .zos-header { grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+  .zos-logo { display:flex; align-items:center; gap:8px; }
+  .zos-logo .mark { width:28px; height:28px; flex-shrink:0; }
+  .zos-logo .word { line-height:1.12; }
+  .zos-logo .word b { display:block; font-size:13px; letter-spacing:0.03em; color:var(--primary-dark); }
+  .zos-logo .word span { display:block; font-size:10.5px; font-weight:800; letter-spacing:0.14em; color:var(--amber); }
+  .zos-eyebrow { font-size:10px; font-weight:700; letter-spacing:0.12em; color:#8a7f6f; text-transform:uppercase; white-space:nowrap; border-bottom:2px solid var(--amber); padding-bottom:4px; }
+  .zos-col { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .zos-headline { font-size:19px; line-height:1.28; color:#22322c; margin:2px 0 0; font-weight:700; }
+  .zos-headline em { font-style:normal; color:var(--amber); }
+  .zos-sub { font-size:12px; line-height:1.5; color:#5a6a63; }
+  .zos-sub strong { color:#22322c; }
+  .health-card { background:white; border:1px solid var(--border); border-radius:12px; padding:13px 15px; }
+  .health-card .eyebrow { font-size:9.5px; font-weight:700; letter-spacing:0.1em; color:#8a7f6f; text-transform:uppercase; margin-bottom:4px; }
+  .health-card .row { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px; }
+  .health-card .score { font-size:32px; font-weight:800; color:var(--primary-dark); }
+  .health-card .score small { font-size:12.5px; font-weight:600; color:#8a7f6f; }
+  .health-card .trend { font-size:10.5px; color:var(--primary-dark); font-weight:700; }
+  .health-bar { height:6px; border-radius:999px; background:linear-gradient(90deg,#c0392b,#c98a2c,#2e8b57); margin-top:9px; position:relative; }
+  .health-bar .dot { position:absolute; top:50%; width:11px; height:11px; border-radius:50%; background:white; border:2.5px solid var(--primary-dark); transform:translate(-50%,-50%); }
+  .health-bar-labels { display:flex; justify-content:space-between; font-size:9px; color:#8a7f6f; margin-top:4px; }
+  .zos-quote { font-size:11.5px; font-style:italic; color:#5a6a63; border-left:2px solid var(--amber); padding-left:10px; }
+  .zos-chart-col { align-items:center; text-align:center; }
+  .priorities-title, .quickwins-title { font-size:10.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a7f6f; margin:2px 0 2px; }
+  .priority-card { display:flex; align-items:center; gap:10px; background:white; border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+  .priority-card .rank-icon { width:32px; height:32px; border-radius:50%; background:#fbe7ce; color:var(--amber); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .priority-card .body { flex:1; min-width:0; }
+  .priority-card .num { font-size:10px; color:#8a7f6f; font-weight:700; }
+  .priority-card .name { font-size:12px; font-weight:700; color:#22322c; }
+  .priority-card .val { font-size:14px; font-weight:800; }
+  .priority-card .deficit { font-size:10px; color:#8a7f6f; }
+  .quickwin-item { display:flex; align-items:flex-start; gap:8px; font-size:12px; padding:4px 0; }
+  .quickwin-item .check { width:16px; height:16px; border-radius:50%; background:#e2efe8; color:var(--green); display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .quickwin-item .qtitle { font-weight:700; color:#22322c; display:block; }
+  .quickwin-item .qimpact { font-size:10px; color:#8a7f6f; }
+  .zos-footer { grid-column: 1 / -1; display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--border); padding-top:14px; margin-top:2px; flex-wrap:wrap; }
+  .zos-stat { display:flex; align-items:center; gap:8px; flex:1; min-width:130px; }
+  .zos-stat .ic { width:28px; height:28px; border-radius:50%; background:#eef3f1; color:var(--primary-dark); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .zos-stat .val { font-size:14px; font-weight:800; color:#22322c; line-height:1.1; }
+  .zos-stat .lbl { font-size:9.5px; color:#8a7f6f; }
+  @media (max-width: 700px) {
+    .zos-dashboard { grid-template-columns: 1fr; }
+    .zos-footer { flex-direction:column; }
+  }
+
   .score-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px; }
   .score-card { border:1px solid var(--border); border-radius:10px; padding:14px; }
   .score-card .persp { font-size:12px; color:#667; text-transform:uppercase; letter-spacing:0.03em; }
@@ -577,109 +625,208 @@
   }
 
   function svgLabel(text) {
-    // Altijd het eerste woord: voorkomt dat lange labels buiten de grafiek vallen,
-    // vooral bij de links/rechts geplaatste assen van het spiderweb.
+    // Altijd het eerste woord: voorkomt dat lange labels buiten de grafiek vallen.
     const shortened = text.split(" ")[0];
     return shortened.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
-  function buildBscRadarSvg(perspScores) {
-    const size = 380, cx = size / 2, cy = size / 2 + 4, R = 108;
+  function ringTierColor(score) {
+    if (score >= 80) return { fill: "#234f42", name: "Sterk" };
+    if (score >= 70) return { fill: "#2e8b57", name: "Goed" };
+    if (score >= 50) return { fill: "#c98a2c", name: "Aandacht" };
+    return { fill: "#c0392b", name: "Kritiek" };
+  }
+
+  function ringPolar(cx, cy, r, angleDeg) {
+    const rad = angleDeg * Math.PI / 180; // 0deg = boven (12 uur), met de klok mee
+    return [cx + r * Math.sin(rad), cy - r * Math.cos(rad)];
+  }
+
+  function ringWedgePath(cx, cy, rOuter, rInner, startDeg, endDeg) {
+    const [x0o, y0o] = ringPolar(cx, cy, rOuter, startDeg);
+    const [x1o, y1o] = ringPolar(cx, cy, rOuter, endDeg);
+    const [x1i, y1i] = ringPolar(cx, cy, rInner, endDeg);
+    const [x0i, y0i] = ringPolar(cx, cy, rInner, startDeg);
+    const largeArc = (endDeg - startDeg) > 180 ? 1 : 0;
+    return `M ${x0o.toFixed(2)} ${y0o.toFixed(2)} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x1o.toFixed(2)} ${y1o.toFixed(2)} L ${x1i.toFixed(2)} ${y1i.toFixed(2)} A ${rInner} ${rInner} 0 ${largeArc} 0 ${x0i.toFixed(2)} ${y0i.toFixed(2)} Z`;
+  }
+
+  // Professionele ringgrafiek (donut-segmenten) i.p.v. het oude "spiderweb" — voorkomt
+  // afgekapte labels (zoals "Leiderschap") en overlappende "Doel"-tekst, en geeft elk
+  // perspectief een eigen, duidelijk afgebakend segment met eigen statuskleur.
+  function buildBscChartSvg(perspScores) {
+    const W = 520, H = 400, cx = 260, cy = 200;
+    const Router = 112, Rinner = 70;
+    const labelR = Router + 24;
     const N = perspScores.length;
-    const hexDark = { green: "#1f6b46", amber: "#a8650f", red: "#8f2415" };
-    const hexLight = { green: "#6ee7b0", amber: "#ffd98a", red: "#ff9c8a" };
+    const segSpan = 360 / N;
+    const gap = 4;
     const uid = "bsc" + Math.random().toString(36).slice(2, 8);
 
-    function angleFor(i) { return -Math.PI / 2 + i * (2 * Math.PI / N); }
-    function pointFor(i, value) {
-      const r = (value / 100) * R;
-      const a = angleFor(i);
-      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-    }
+    const overall = Math.round(perspScores.reduce((a, p) => a + p.score, 0) / N);
 
     const defs = `<defs>
-      <radialGradient id="${uid}-bg" cx="50%" cy="45%" r="65%">
-        <stop offset="0%" stop-color="#2f6f5e" stop-opacity="0.10"/>
-        <stop offset="70%" stop-color="#2f6f5e" stop-opacity="0.03"/>
+      <radialGradient id="${uid}-bg" cx="50%" cy="50%" r="65%">
+        <stop offset="0%" stop-color="#2f6f5e" stop-opacity="0.08"/>
         <stop offset="100%" stop-color="#2f6f5e" stop-opacity="0"/>
       </radialGradient>
-      <linearGradient id="${uid}-fill" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#3d8f77" stop-opacity="0.78"/>
-        <stop offset="100%" stop-color="#255a4a" stop-opacity="0.58"/>
-      </linearGradient>
-      <filter id="${uid}-shadow" x="-40%" y="-40%" width="180%" height="180%">
-        <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#0f2a22" flood-opacity="0.30"/>
+      <filter id="${uid}-shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f2a22" flood-opacity="0.18"/>
       </filter>
-      <filter id="${uid}-softshadow" x="-80%" y="-80%" width="260%" height="260%">
-        <feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="#0f2a22" flood-opacity="0.35"/>
-      </filter>
-      <filter id="${uid}-glow" x="-60%" y="-60%" width="220%" height="220%">
-        <feGaussianBlur stdDeviation="4.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      ${["green", "amber", "red"].map((c) => `<radialGradient id="${uid}-dot-${c}" cx="32%" cy="28%" r="75%">
-        <stop offset="0%" stop-color="${hexLight[c]}"/>
-        <stop offset="100%" stop-color="${hexDark[c]}"/>
-      </radialGradient>`).join("")}
     </defs>`;
 
     let inner = "";
-
-    // Zachte "vloer"-schaduw onder de grafiek voor dieptegevoel
-    inner += `<ellipse cx="${cx}" cy="${cy + R * 0.94}" rx="${R * 0.95}" ry="${R * 0.15}" fill="#0f2a22" opacity="0.08"/>`;
-
-    // Achtergrondgloed
-    inner += `<circle cx="${cx}" cy="${cy}" r="${R * 1.22}" fill="url(#${uid}-bg)"/>`;
-
-    // Gelaagde "terrein"-banden tussen de rasterringen (25/50/75/100)
-    [25, 50, 75, 100].forEach((lvl, idx) => {
-      const pts = perspScores.map((_, i) => pointFor(i, lvl).join(",")).join(" ");
-      const bandOpacity = (0.05 + idx * 0.025).toFixed(3);
-      inner += `<polygon points="${pts}" fill="#2f6f5e" fill-opacity="${bandOpacity}" stroke="#cfe0da" stroke-width="1"/>`;
-    });
-
-    // Assen
-    perspScores.forEach((_, i) => {
-      const [x, y] = pointFor(i, 100);
-      inner += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#c9d8d2" stroke-width="1"/>`;
-    });
-
-    // Doelring op 80 (gestippeld)
-    const targetPts = perspScores.map((_, i) => pointFor(i, HEALTHY_TARGET).join(",")).join(" ");
-    inner += `<polygon points="${targetPts}" fill="none" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.55"/>`;
-
-    // Schaduw van het scorepolygoon (geeft het gevoel dat het "zweeft" boven het raster)
-    const scorePts = perspScores.map((p, i) => pointFor(i, p.score).join(",")).join(" ");
-    inner += `<polygon points="${scorePts}" fill="#0f2a22" opacity="0.18" filter="url(#${uid}-shadow)" transform="translate(0,3)"/>`;
-
-    // Scorepolygoon (het "spiderweb"): glasachtige gradient-fill + gloed
-    inner += `<polygon points="${scorePts}" fill="url(#${uid}-fill)" stroke="#2f6f5e" stroke-width="2.5" filter="url(#${uid}-glow)"/>`;
+    inner += `<circle cx="${cx}" cy="${cy}" r="${Router * 1.28}" fill="url(#${uid}-bg)"/>`;
 
     perspScores.forEach((p, i) => {
-      const [x, y] = pointFor(i, p.score);
-      const statusKey = scoreColor(p.score);
+      const centerAngle = i * segSpan;
+      const startAngle = centerAngle - segSpan / 2 + gap / 2;
+      const endAngle = centerAngle + segSpan / 2 - gap / 2;
+      const tier = ringTierColor(p.score);
+      const path = ringWedgePath(cx, cy, Router, Rinner, startAngle, endAngle);
+      inner += `<path d="${path}" fill="${tier.fill}" filter="url(#${uid}-shadow)"/>`;
 
-      // Glanzende 3D-bol per meetpunt
-      inner += `<circle cx="${x}" cy="${y}" r="5.5" fill="url(#${uid}-dot-${statusKey})" stroke="white" stroke-width="1.5" filter="url(#${uid}-softshadow)"/>`;
-
-      const a = angleFor(i);
-      const cosA = Math.cos(a);
-      const anchor = Math.abs(cosA) < 0.3 ? "middle" : (cosA > 0 ? "start" : "end");
-      const [lx, ly] = pointFor(i, 122);
-      inner += `<text x="${lx}" y="${ly}" font-size="11.5" font-weight="700" text-anchor="${anchor}" fill="#243b34">${svgLabel(p.label)}</text>`;
-
+      const [lx, ly] = ringPolar(cx, cy, labelR, centerAngle);
+      const sinC = Math.sin(centerAngle * Math.PI / 180);
+      const anchor = Math.abs(sinC) < 0.35 ? "middle" : (sinC > 0 ? "start" : "end");
       const deficitText = p.score < HEALTHY_TARGET ? " (-" + (HEALTHY_TARGET - p.score) + ")" : "";
-      const [sx, sy] = pointFor(i, Math.min(p.score + 13, 108));
-      inner += `<text x="${sx}" y="${sy}" font-size="11" font-weight="700" text-anchor="middle" fill="${hexDark[statusKey]}">${p.score}${deficitText}</text>`;
+      inner += `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" font-family="-apple-system,Helvetica,Arial,sans-serif" text-anchor="${anchor}">` +
+        `<tspan x="${lx.toFixed(2)}" dy="0" font-size="13" font-weight="700" fill="#234f42">${svgLabel(p.label)}</tspan>` +
+        `<tspan x="${lx.toFixed(2)}" dy="16" font-size="13" font-weight="700" fill="${tier.fill}">${p.score}${deficitText}</tspan>` +
+        `</text>`;
     });
 
-    const [tgx, tgy] = pointFor(0, HEALTHY_TARGET);
-    inner += `<text x="${tgx + 8}" y="${tgy - 6}" font-size="10" font-weight="700" fill="#2f6f5e">Doel: gezond (${HEALTHY_TARGET})</text>`;
+    // Centrale hub met het gemiddelde totaalscore
+    inner += `<circle cx="${cx}" cy="${cy}" r="${Rinner - 6}" fill="white" stroke="#e1e8e5" stroke-width="1"/>`;
+    inner += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="30" font-weight="800" fill="#234f42">${overall}</text>`;
+    inner += `<text x="${cx}" y="${cy + 13}" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="0.04em" fill="#78897f">/100 SCORE</text>`;
 
-    // Centrale hub voor extra diepte
-    inner += `<circle cx="${cx}" cy="${cy}" r="3" fill="#2f6f5e" opacity="0.5"/>`;
+    const legendItems = [
+      ["#234f42", "Sterk (≥80)"],
+      ["#2e8b57", "Goed (70-79)"],
+      ["#c98a2c", "Aandacht (50-69)"],
+      ["#c0392b", "Kritiek (<50)"],
+    ];
+    const legend = '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:6px;font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:11px;color:#556;">' +
+      legendItems.map(([color, label]) => `<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin-right:4px;vertical-align:-1px;"></span>${label}</span>`).join("") +
+      '</div>';
 
-    return '<svg viewBox="0 0 ' + size + " " + (size + 8) + '" width="100%" height="auto" role="img" aria-label="BSC-scores per perspectief (spiderweb, 3D-stijl)">' + defs + inner + "</svg>";
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="auto" role="img" aria-label="BSC-scores per perspectief (ringgrafiek)">' + defs + inner + '</svg>' + legend;
+  }
+
+  // Kleine lijn-icoontjes (Feather-stijl) per BSC-perspectief, gebruikt in het dashboard hierboven.
+  const DASH_ICON_PATHS = {
+    financieel: '<polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/>',
+    patient: '<path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    processen: '<circle cx="12" cy="12" r="3.2"/><path d="M19.2 14.7a1.6 1.6 0 0 0 .32 1.76l.05.06a1.9 1.9 0 1 1-2.7 2.7l-.05-.06a1.6 1.6 0 0 0-1.76-.32 1.6 1.6 0 0 0-.98 1.47V20.5a1.9 1.9 0 0 1-3.8 0v-.1a1.6 1.6 0 0 0-1.05-1.46 1.6 1.6 0 0 0-1.76.32l-.05.06a1.9 1.9 0 1 1-2.7-2.7l.06-.05a1.6 1.6 0 0 0 .32-1.76 1.6 1.6 0 0 0-1.47-.98H3.5a1.9 1.9 0 0 1 0-3.8h.1a1.6 1.6 0 0 0 1.46-1.05 1.6 1.6 0 0 0-.32-1.76l-.06-.05a1.9 1.9 0 1 1 2.7-2.7l.05.06a1.6 1.6 0 0 0 1.76.32H8.9a1.6 1.6 0 0 0 .98-1.47V3.5a1.9 1.9 0 0 1 3.8 0v.1a1.6 1.6 0 0 0 .98 1.47c.6.25 1.3.13 1.76-.32l.05-.06a1.9 1.9 0 1 1 2.7 2.7l-.06.05a1.6 1.6 0 0 0-.32 1.76v.1a1.6 1.6 0 0 0 1.47.98h.13a1.9 1.9 0 0 1 0 3.8h-.1a1.6 1.6 0 0 0-1.47.98z"/>',
+    team: '<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/>',
+    leiderschap: '<circle cx="12" cy="8.2" r="5.2"/><path d="M8.3 12.9 7 22l5-3 5 3-1.3-9.1"/>',
+  };
+  function dashIconSvg(perspKey, size) {
+    const s = size || 16;
+    const paths = DASH_ICON_PATHS[perspKey] || DASH_ICON_PATHS.processen;
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
+  }
+  const CHECK_ICON = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+  // Korte, neutrale onderwerp-titels per vraag (géén oplossingstekst — die blijft achter de paywall
+  // in het "Verbeterpunten"-blok verderop, net zoals in de rest van deze teaserpagina).
+  const TOPIC_LABELS = {
+    patientenPerWeek: "Praktijkbezetting", nietBetaaldPerWeek: "Betalingsachterstand", omzetTrend: "Omzettrend",
+    wachttijd: "Wachttijd verkorten", noShowPerWeek: "No-show reductie", tevredenheid: "Tevredenheidsmeting",
+    digitalisering: "Dossierdigitalisering", adminUren: "Administratietijd", gemisteOproepFlow: "Gemiste-oproep-opvang",
+    bijscholing: "Teambijscholing", verloop: "Personeelsverloop", teamTevredenheid: "Teamtevredenheid",
+    foutmanagement: "Foutmanagement", herstel: "Herstelmomenten", aanwezigheid: "Aanwezigheid onder druk",
+  };
+
+  // Bouwt het "ZENPERTISE OS"-stijl dashboard rond de ringgrafiek: hero-copy, Practice Health Score,
+  // top-prioriteiten en snelle-win-titels. Alleen scores/titels — de concrete oplossingen blijven
+  // gelockt in het "Verbeterpunten"-blok, zodat de bestaande teaser/paywall-opzet intact blijft.
+  function buildBscDashboardHtml(perspScores, chartSvg, quickWins) {
+    const N = perspScores.length;
+    const overall = Math.round(perspScores.reduce((a, p) => a + p.score, 0) / N);
+    const belowTarget = perspScores.filter((p) => p.score < HEALTHY_TARGET);
+    const avgDeficit = belowTarget.length
+      ? Math.round(belowTarget.reduce((a, p) => a + (HEALTHY_TARGET - p.score), 0) / belowTarget.length)
+      : 0;
+
+    const priKeys = BSC.map((p) => p.key);
+    const sorted = perspScores.map((p, i) => ({ label: p.label, score: p.score, idx: i })).sort((a, b) => a.score - b.score);
+    const topPriorities = sorted.slice(0, 2);
+
+    let prioritiesHtml = "";
+    topPriorities.forEach((p, rank) => {
+      const key = priKeys[p.idx];
+      const deficitTxt = p.score < HEALTHY_TARGET ? (HEALTHY_TARGET - p.score) + " punten onder doel" : "op doel";
+      prioritiesHtml +=
+        '<div class="priority-card">' +
+          '<div class="rank-icon">' + dashIconSvg(key, 16) + '</div>' +
+          '<div class="body">' +
+            '<div class="num">0' + (rank + 1) + '</div>' +
+            '<div class="name">' + escapeHtml(p.label) + '</div>' +
+            '<div class="val" style="color:' + ringTierColor(p.score).fill + '">' + p.score + '/100</div>' +
+            '<div class="deficit">' + deficitTxt + '</div>' +
+          '</div>' +
+        '</div>';
+    });
+
+    let quickWinsHtml = "";
+    quickWins.slice(0, 3).forEach((qw) => {
+      quickWinsHtml +=
+        '<div class="quickwin-item"><div class="check">' + CHECK_ICON + '</div>' +
+        '<div><span class="qtitle">' + escapeHtml(qw.title) + '</span>' +
+        '<span class="qimpact">' + (qw.impact === "red" ? "Hoge impact" : "Gemiddelde impact") + '</span></div></div>';
+    });
+    if (!quickWinsHtml) {
+      quickWinsHtml = '<div class="quickwin-item"><div class="check">' + CHECK_ICON + '</div>' +
+        '<div><span class="qtitle">Geen kritieke snelle wins gevonden</span><span class="qimpact">Goed bezig</span></div></div>';
+    }
+
+    const dotPct = Math.max(2, Math.min(98, overall));
+
+    return (
+      '<div class="zos-dashboard">' +
+        '<div class="zos-header">' +
+          '<div class="zos-logo">' +
+            '<svg class="mark" viewBox="0 0 32 32" fill="none" stroke="#c98a2c" stroke-width="1.3">' +
+              '<polygon points="16,3 28,10 28,22 16,29 4,22 4,10"/>' +
+              '<polygon points="16,9 22,12.5 22,19.5 16,23 10,19.5 10,12.5"/>' +
+              '<line x1="16" y1="3" x2="16" y2="9"/><line x1="28" y1="10" x2="22" y2="12.5"/>' +
+              '<line x1="28" y1="22" x2="22" y2="19.5"/><line x1="16" y1="29" x2="16" y2="23"/>' +
+              '<line x1="4" y1="22" x2="10" y2="19.5"/><line x1="4" y1="10" x2="10" y2="12.5"/>' +
+            '</svg>' +
+            '<div class="word"><b>ZENPERTISE</b><span>OS</span></div>' +
+          '</div>' +
+          '<div class="zos-eyebrow">Practice Balance Scorecard</div>' +
+        '</div>' +
+        '<div class="zos-col">' +
+          '<div class="zos-headline">De gezondheid van je praktijk.<br>In <em>&eacute;&eacute;n oogopslag</em>.</div>' +
+          '<div class="zos-sub">Vijf domeinen bepalen je praktijkresultaat. Zie waar je <strong>sterk staat</strong>, waar de kansen liggen en waar je nu het grootste verschil kan maken.</div>' +
+          '<div class="health-card">' +
+            '<div class="eyebrow">Practice Health Score</div>' +
+            '<div class="row"><div class="score">' + overall + '<small>/100</small></div>' +
+            (belowTarget.length ? '<div class="trend">' + belowTarget.length + ' van ' + N + ' onder doel</div>' : '<div class="trend">Alle domeinen op doel</div>') +
+            '</div>' +
+            '<div class="health-bar"><div class="dot" style="left:' + dotPct + '%"></div></div>' +
+            '<div class="health-bar-labels"><span>0</span><span>50</span><span>100</span></div>' +
+          '</div>' +
+          '<div class="zos-quote">&ldquo;Focus op de juiste prioriteiten. Meet de vooruitgang. Groei duurzaam.&rdquo;</div>' +
+        '</div>' +
+        '<div class="zos-col zos-chart-col">' + chartSvg + '</div>' +
+        '<div class="zos-col">' +
+          '<div class="priorities-title">Top prioriteiten</div>' +
+          prioritiesHtml +
+          '<div class="quickwins-title">Snelle win-kansen</div>' +
+          quickWinsHtml +
+        '</div>' +
+        '<div class="zos-footer">' +
+          '<div class="zos-stat"><div class="ic">' + dashIconSvg("financieel", 15) + '</div><div><div class="val">' + belowTarget.length + ' van ' + N + '</div><div class="lbl">Domeinen onder doel</div></div></div>' +
+          '<div class="zos-stat"><div class="ic">' + dashIconSvg("processen", 15) + '</div><div><div class="val">' + quickWins.length + '</div><div class="lbl">Concrete verbeterpunten</div></div></div>' +
+          '<div class="zos-stat"><div class="ic">' + dashIconSvg("team", 15) + '</div><div><div class="val">+' + avgDeficit + ' pt</div><div class="lbl">Gem. afstand tot doel</div></div></div>' +
+          '<div class="zos-stat"><div class="ic">' + dashIconSvg("leiderschap", 15) + '</div><div><div class="val">Evidence-based</div><div class="lbl">Benchmarking &amp; best practices</div></div></div>' +
+        '</div>' +
+      '</div>'
+    );
   }
 
   function showReport() {
@@ -687,10 +834,11 @@
     reportArea.style.display = "block";
 
     const perspScores = BSC.map((persp) => ({ label: persp.label, score: perspectiveScore(persp) }));
-    const chartSvg = buildBscRadarSvg(perspScores);
+    const chartSvg = buildBscChartSvg(perspScores);
 
     let scoreCardsHtml = "";
     let improveHtml = "";
+    const quickWins = [];
 
     BSC.forEach((persp) => {
       const statuses = persp.questions.map((q) => q.status(answers[q.key], answers));
@@ -708,9 +856,12 @@
             '<div class="improve-item"><div class="dot ' + badgeClass(st) + '"></div>' +
             '<div><strong>' + escapeHtml(persp.label) + ':</strong> ' + escapeHtml(q.improve) +
             (calc ? '<span class="calc-note">' + escapeHtml(calc) + '</span>' : '') + '</div></div>';
+          // Alleen het onderwerp (geen oplossingstekst) voor de "Snelle win-kansen"-tegel in het dashboard.
+          quickWins.push({ title: TOPIC_LABELS[q.key] || persp.label, impact: st });
         }
       });
     });
+    quickWins.sort((a, b) => (a.impact === b.impact ? 0 : a.impact === "red" ? -1 : 1));
 
     const hasImprovements = !!improveHtml;
     if (!improveHtml) {
@@ -767,7 +918,7 @@
       '<div class="report">' +
         '<h2>Quick Scan-rapport — ' + escapeHtml(SECTORS[currentSector].name) + 'praktijk</h2>' +
         '<div class="sub">Score per Balanced Scorecard-perspectief. De concrete verbeterpunten en oplossingen zitten in het volledige rapport.</div>' +
-        '<div class="bsc-chart">' + chartSvg + '</div>' +
+        buildBscDashboardHtml(perspScores, chartSvg, quickWins) +
         '<div class="score-grid">' + scoreCardsHtml + '</div>' +
         '<div class="improve-wrapper">' +
           '<div class="improve-list' + (hasImprovements ? ' locked' : '') + '" id="improveList"><h3>Verbeterpunten</h3>' + improveHtml + '</div>' +
@@ -991,16 +1142,6 @@
             '<input type="number" min="0" step="1" id="ppBehandelruimtes" placeholder="Behandelruimtes" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="0.1" id="ppOndersteunend" placeholder="VTE ondersteunend personeel" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
           '</div>' +
-          '<div style="margin-top:8px;">' +
-            '<select id="ppConventiestatus" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;background:white;">' +
-              '<option value="">Conventiestatus (optioneel)</option>' +
-              '<option value="geconventioneerd">Geconventioneerd (RIZIV-tarief)</option>' +
-              '<option value="niet-toegetreden">Niet-toegetreden (eigen tarief)</option>' +
-              '<option value="gedeeltelijk">Gedeeltelijk geconventioneerd</option>' +
-            '</select>' +
-            '<input type="number" min="0" step="0.01" id="ppEigenTarief" placeholder="Je eigen tarief per sessie (\u20ac)" style="display:none;margin-top:6px;width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
-            '<div style="font-size:11px;color:#889;margin-top:4px;">Enkel relevant als je niet-toegetreden bent en dus zelf je tarief bepaalt \u2014 anders rekenen we met het RIZIV-sectortarief.</div>' +
-          '</div>' +
         '</div>' +
         '<div class="qa-addon-picker">' +
           '<div class="qa-addon-title">AI-Q&A-toegang na vandaag (optioneel)</div>' +
@@ -1045,16 +1186,6 @@
         const isHidden = promoCodeWrap.style.display === "none";
         promoCodeWrap.style.display = isHidden ? "block" : "none";
         if (isHidden) document.getElementById("leadPromoCode").focus();
-      });
-    }
-
-    // Conventiestatus/eigen tarief (taak #234-fix): eigen-tarief-veld enkel tonen bij
-    // "niet-toegetreden", zodat het duidelijk is wanneer het effect heeft op de \u20ac-ROI-berekening.
-    const ppConventiestatusEl = document.getElementById("ppConventiestatus");
-    const ppEigenTariefEl = document.getElementById("ppEigenTarief");
-    if (ppConventiestatusEl && ppEigenTariefEl) {
-      ppConventiestatusEl.addEventListener("change", () => {
-        ppEigenTariefEl.style.display = ppConventiestatusEl.value === "niet-toegetreden" ? "block" : "none";
       });
     }
   }
@@ -1119,8 +1250,6 @@
     const ppLocatiesEl = document.getElementById("ppLocaties");
     const ppBehandelruimtesEl = document.getElementById("ppBehandelruimtes");
     const ppOndersteunendEl = document.getElementById("ppOndersteunend");
-    const ppConventiestatusEl2 = document.getElementById("ppConventiestatus");
-    const ppEigenTariefEl2 = document.getElementById("ppEigenTarief");
     const toNumOrNull = (el) => (el && el.value !== "" ? Number(el.value) : null);
     const practiceProfile = {
       model_type: (ppModelTypeEl && ppModelTypeEl.value) || null,
@@ -1128,8 +1257,6 @@
       locaties: toNumOrNull(ppLocatiesEl),
       behandelruimtes: toNumOrNull(ppBehandelruimtesEl),
       ondersteunend_personeel_vte: toNumOrNull(ppOndersteunendEl),
-      conventiestatus: (ppConventiestatusEl2 && ppConventiestatusEl2.value) || null,
-      eigen_tarief: toNumOrNull(ppEigenTariefEl2),
     };
 
     const leadPayload = {
