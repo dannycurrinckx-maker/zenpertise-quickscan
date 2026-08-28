@@ -654,6 +654,26 @@
     return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
   }
 
+  // Fase0 §7.6 (Development addendum): sectorspecifieke weergave-labels voor BSC-perspectieven,
+  // spiegelbeeld van PERSPECTIVE_LABEL_OVERRIDES/_perspective_display_label in main.py. De
+  // interne sleutel ("Klant" — persp.key/persp.label in BSC hierboven) blijft ONGEWIJZIGD overal
+  // waar hij als data-sleutel dient: scoresObj[label] (payload naar backend), TOPIC_LABELS-lookup,
+  // enz. Enkel de tekst die de gebruiker effectief te zien krijgt (grafieklabel, dashboard-kaarten,
+  // score-cards) wisselt per sector via displayPerspLabel() hieronder. "Leren & Groei" blijft
+  // expliciet ongewijzigd voor alle sectoren (bevestigd in het addendum).
+  const PERSPECTIVE_LABEL_OVERRIDES = {
+    kinesist: { "Klant": "Patiënt" },
+  };
+  function perspectiveDisplayLabel(label, sectorName) {
+    if (!sectorName || !label) return label;
+    const overrides = PERSPECTIVE_LABEL_OVERRIDES[sectorName.trim().toLowerCase()] || {};
+    return overrides[label] || label;
+  }
+  function displayPerspLabel(label) {
+    const sectorName = (currentSector && SECTORS[currentSector]) ? SECTORS[currentSector].name : null;
+    return perspectiveDisplayLabel(label, sectorName);
+  }
+
   function svgLabel(text) {
     // Altijd het eerste woord: voorkomt dat lange labels buiten de grafiek vallen.
     const shortened = text.split(" ")[0];
@@ -721,7 +741,7 @@
       const anchor = Math.abs(sinC) < 0.35 ? "middle" : (sinC > 0 ? "start" : "end");
       const deficitText = p.score < HEALTHY_TARGET ? " (-" + (HEALTHY_TARGET - p.score) + ")" : "";
       inner += `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" font-family="-apple-system,Helvetica,Arial,sans-serif" text-anchor="${anchor}">` +
-        `<tspan x="${lx.toFixed(2)}" dy="0" font-size="13" font-weight="700" fill="#234f42">${svgLabel(p.label)}</tspan>` +
+        `<tspan x="${lx.toFixed(2)}" dy="0" font-size="13" font-weight="700" fill="#234f42">${svgLabel(displayPerspLabel(p.label))}</tspan>` +
         `<tspan x="${lx.toFixed(2)}" dy="16" font-size="13" font-weight="700" fill="${tier.fill}">${p.score}${deficitText}</tspan>` +
         `</text>`;
     });
@@ -793,7 +813,7 @@
           '<div class="rank-icon">' + dashIconSvg(key, 16) + '</div>' +
           '<div class="body">' +
             '<div class="num">0' + (rank + 1) + '</div>' +
-            '<div class="name">' + escapeHtml(p.label) + '</div>' +
+            '<div class="name">' + escapeHtml(displayPerspLabel(p.label)) + '</div>' +
             '<div class="val" style="color:' + ringTierColor(p.score).fill + '">' + p.score + '/100</div>' +
             '<div class="deficit">' + deficitTxt + '</div>' +
           '</div>' +
@@ -875,7 +895,7 @@
       // Perspectief-status = de slechtste van de drie
       const worst = statuses.includes("red") ? "red" : statuses.includes("amber") ? "amber" : "green";
       scoreCardsHtml +=
-        '<div class="score-card"><div class="persp">' + escapeHtml(persp.label) + '</div>' +
+        '<div class="score-card"><div class="persp">' + escapeHtml(displayPerspLabel(persp.label)) + '</div>' +
         '<span class="badge ' + badgeClass(worst) + '">' + badgeLabel(worst) + '</span></div>';
 
       persp.questions.forEach((q) => {
@@ -884,10 +904,10 @@
           const calc = q.display ? q.display(answers[q.key], answers) : "";
           improveHtml +=
             '<div class="improve-item"><div class="dot ' + badgeClass(st) + '"></div>' +
-            '<div><strong>' + escapeHtml(persp.label) + ':</strong> ' + escapeHtml(q.improve) +
+            '<div><strong>' + escapeHtml(displayPerspLabel(persp.label)) + ':</strong> ' + escapeHtml(q.improve) +
             (calc ? '<span class="calc-note">' + escapeHtml(calc) + '</span>' : '') + '</div></div>';
           // Alleen het onderwerp (geen oplossingstekst) voor de "Snelle win-kansen"-tegel in het dashboard.
-          quickWins.push({ title: TOPIC_LABELS[q.key] || persp.label, impact: st });
+          quickWins.push({ title: TOPIC_LABELS[q.key] || displayPerspLabel(persp.label), impact: st });
         }
       });
     });
