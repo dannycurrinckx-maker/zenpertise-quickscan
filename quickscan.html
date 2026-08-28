@@ -158,6 +158,21 @@
   .ai-qa-panel .price-note { font-size:11px; color:#889; margin-top:8px; }
   .ai-qa-panel .ai-disclosure { font-size:12px; color:#7a5b00; background:#fff8e6; border:1px solid #f0dfa0; border-radius:8px; padding:9px 11px; margin-bottom:10px; line-height:1.45; }
 
+  /* Command Center-kaart (taak #262) — minimale vertical-slice status in de AI-Q&A-terugkeerflow
+     (renderQaReturnScreen): welke diagnose nu actief is, streef-KPI + huidige waarde, de
+     eerstvolgende playbook-stap, en een indicatieve volgende hermeetdatum. Toont enkel wat de
+     backend (_command_center_summary in main.py) al kant-en-klaar berekend heeft. */
+  .cc-card { border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin:16px 20px 0; background:linear-gradient(135deg,#f4f8f6,#ffffff); }
+  .cc-card .cc-label { font-size:10.5px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--primary); margin-bottom:6px; }
+  .cc-card h3 { font-size:15px; margin:0 0 10px; color:var(--primary-dark); }
+  .cc-card .cc-row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; font-size:12.5px; padding:7px 0; border-top:1px solid #eef1ef; }
+  .cc-card .cc-row:first-of-type { border-top:none; }
+  .cc-card .cc-row .cc-k { color:#667; flex-shrink:0; }
+  .cc-card .cc-row .cc-v { color:#234f42; font-weight:600; text-align:right; }
+  .cc-card .cc-row .cc-v .cc-faint { font-weight:400; color:#889; }
+  .cc-card .cc-step { font-size:12.5px; color:#334; background:#fbfaf7; border-radius:8px; padding:9px 11px; margin-top:8px; line-height:1.45; }
+  .cc-card .cc-foot { font-size:11px; color:#889; margin-top:10px; line-height:1.4; }
+
   /* AI-Q&A pop-up — enkel voor de betaalde, post-scan terugkeer-flow (magic link, zie
      renderQaReturnScreen()). De gratis proefsessie tijdens de scan zelf blijft het bestaande
      ingebedde .ai-qa-panel hierboven; bewust niet aangeraakt. Eigen merkkleuren (var(--primary)/
@@ -246,7 +261,7 @@
     <div class="header">
       <button id="voiceToggle" class="voice-toggle" type="button" title="Bot spreekt vragen uit — klik om te dempen" aria-label="Spraakweergave aan/uit">🔊</button>
       <h1>Zenpertise Quick Scan</h1>
-      <p id="headerSub">Kies je praktijktype om te starten — 15 vragen, 4 minuten.</p>
+      <p id="headerSub">Kies je praktijktype om te starten — 16 vragen, 4 minuten.</p>
     </div>
     <div id="sectorPicker" class="sector-picker"></div>
     <div id="chatArea" style="display:none;">
@@ -352,6 +367,21 @@
             return (!isNaN(noShow) && !isNaN(cap) && cap > 0) ? "Gemeten no-show: " + Math.round((noShow / cap) * 100) + "% (" + noShow + " van " + cap + ")." : "";
           },
           improve: "Verlaag no-shows met automatische afspraakherinneringen (sms/WhatsApp) 24-48u op voorhand.",
+        },
+        {
+          key: "laattijdigeAnnuleringen", label: "Hoeveel afspraken worden er gemiddeld per week laattijdig geannuleerd (binnen 24-48u vooraf, te laat om het slot nog opnieuw in te vullen)? (getal)",
+          status: (v, allAnswers) => {
+            const laat = parseFloat(v);
+            const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            if (isNaN(laat) || isNaN(cap) || cap <= 0) return "amber";
+            const pct = (laat / cap) * 100;
+            if (pct <= 5) return "green"; if (pct <= 12) return "amber"; return "red";
+          },
+          display: (v, allAnswers) => {
+            const laat = parseFloat(v), cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
+            return (!isNaN(laat) && !isNaN(cap) && cap > 0) ? "Gemeten laattijdige annuleringen: " + Math.round((laat / cap) * 100) + "% (" + laat + " van " + cap + ")." : "";
+          },
+          improve: "Communiceer het annuleringsvenster (24-48u vooraf) duidelijk en koppel je wachtlijst actief aan late annuleringen, zodat een vrijgekomen slot alsnog herbezet raakt.",
         },
         {
           key: "tevredenheid", label: "Hoe vaak meet je patiënttevredenheid?",
@@ -733,7 +763,7 @@
   // in het "Verbeterpunten"-blok verderop, net zoals in de rest van deze teaserpagina).
   const TOPIC_LABELS = {
     patientenPerWeek: "Praktijkbezetting", nietBetaaldPerWeek: "Betalingsachterstand", omzetTrend: "Omzettrend",
-    wachttijd: "Wachttijd verkorten", noShowPerWeek: "No-show reductie", tevredenheid: "Tevredenheidsmeting",
+    wachttijd: "Wachttijd verkorten", noShowPerWeek: "No-show reductie", laattijdigeAnnuleringen: "Laattijdige annuleringen", tevredenheid: "Tevredenheidsmeting",
     digitalisering: "Dossierdigitalisering", adminUren: "Administratietijd", gemisteOproepFlow: "Gemiste-oproep-opvang",
     bijscholing: "Teambijscholing", verloop: "Personeelsverloop", teamTevredenheid: "Teamtevredenheid",
     foutmanagement: "Foutmanagement", herstel: "Herstelmomenten", aanwezigheid: "Aanwezigheid onder druk",
@@ -1141,6 +1171,7 @@
             '<input type="number" min="0" step="1" id="ppLocaties" placeholder="Aantal locaties" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="1" id="ppBehandelruimtes" placeholder="Behandelruimtes" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="0.1" id="ppOndersteunend" placeholder="VTE ondersteunend personeel" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '<input type="number" min="0" step="1" id="ppBeschikbareSlots" placeholder="Behandelslots effectief open/week" title="Hoeveel behandelslots staan er deze week écht open in je agenda? (kan lager liggen dan je theoretische capaciteit — voorkomt een te optimistische ROI-raming)" style="grid-column:1/-1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
           '</div>' +
         '</div>' +
         '<div class="qa-addon-picker">' +
@@ -1250,6 +1281,7 @@
     const ppLocatiesEl = document.getElementById("ppLocaties");
     const ppBehandelruimtesEl = document.getElementById("ppBehandelruimtes");
     const ppOndersteunendEl = document.getElementById("ppOndersteunend");
+    const ppBeschikbareSlotsEl = document.getElementById("ppBeschikbareSlots");
     const toNumOrNull = (el) => (el && el.value !== "" ? Number(el.value) : null);
     const practiceProfile = {
       model_type: (ppModelTypeEl && ppModelTypeEl.value) || null,
@@ -1257,6 +1289,7 @@
       locaties: toNumOrNull(ppLocatiesEl),
       behandelruimtes: toNumOrNull(ppBehandelruimtesEl),
       ondersteunend_personeel_vte: toNumOrNull(ppOndersteunendEl),
+      beschikbare_behandelslots_week: toNumOrNull(ppBeschikbareSlotsEl),
     };
 
     const leadPayload = {
@@ -1398,7 +1431,7 @@
     if (ttsSupported) window.speechSynthesis.cancel();
     reportArea.style.display = "none";
     sectorPicker.style.display = "flex";
-    headerSub.textContent = "Kies je praktijktype om te starten — 15 vragen, 4 minuten.";
+    headerSub.textContent = "Kies je praktijktype om te starten — 16 vragen, 4 minuten.";
   }
 
   // Toont na een redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
@@ -1525,7 +1558,8 @@
           (daysLeft !== null ? ' &middot; nog ' + daysLeft + ' dag' + (daysLeft === 1 ? "" : "en") + ' toegang' : '') +
           '</div>' +
           '<div class="path-confirm" style="margin-top:14px;">Je AI-adviseur staat voor je klaar — klik rechtsonder op het chatpictogram om te starten.</div>' +
-        '</div>';
+        '</div>' +
+        renderCommandCenterCard(data.command_center);
       headerSub.textContent = "Stel je vraag aan de AI-adviseur.";
 
       // Chat opent als los pop-upscherm (zie .qa-fab/.qa-popup-* hierboven) i.p.v. ingebed in de
@@ -1543,6 +1577,69 @@
     } catch (err) {
       renderQaReturnExpired("Kon je toegang niet controleren (" + err.message + "). Probeer de link straks opnieuw.");
     }
+  }
+
+  // Zet de HTML-entiteiten die main.py in KB-teksten gebruikt (&mdash;, &euro;, &lsquo;/&rsquo;)
+  // om naar hun unicode-teken, VOORDAT escapeHtml() erover loopt — anders zou escapeHtml() de "&"
+  // zelf escapen en zou de gebruiker letterlijk "&mdash;" op het scherm zien i.p.v. een streepje.
+  function decodeKbEntities(s) {
+    return String(s || "")
+      .replace(/&mdash;/g, "—")
+      .replace(/&euro;/g, "€")
+      .replace(/&lsquo;/g, "‘")
+      .replace(/&rsquo;/g, "’");
+  }
+
+  // Command Center-kaart (taak #262) — rendert enkel wat de backend (_command_center_summary in
+  // main.py) al kant-en-klaar heeft berekend: welke diagnose nu actief is, streef-KPI + huidige
+  // waarde (gemeten t.o.v. een echte baseline-scan indien beschikbaar, anders de ruwe scanwaarde),
+  // de eerstvolgende playbook-stap, en een indicatieve volgende hermeetdatum. Zelfde principe als
+  // de AI-copilot: deze kaart berekent zelf geen KPI- of €-waarde, ze toont enkel. Geeft een lege
+  // string terug zonder command_center (bv. praktijk scoort overal groen — geen kaart nodig).
+  function renderCommandCenterCard(cc) {
+    if (!cc) return "";
+    const rows = [];
+    if (cc.target_kpi) {
+      rows.push(
+        '<div class="cc-row"><span class="cc-k">Streef-KPI</span><span class="cc-v">' +
+        escapeHtml(decodeKbEntities(cc.target_kpi)) + '</span></div>'
+      );
+    }
+    const hasBoth = cc.baseline_value !== null && cc.baseline_value !== undefined &&
+                    cc.current_value !== null && cc.current_value !== undefined;
+    let valueLine = "";
+    if (hasBoth) {
+      valueLine = escapeHtml(String(cc.baseline_value)) + ' &rarr; ' + escapeHtml(String(cc.current_value));
+      if (cc.baseline_date) {
+        valueLine += ' <span class="cc-faint">(sinds ' + escapeHtml(cc.baseline_date) + ')</span>';
+      }
+    } else if (cc.current_value !== null && cc.current_value !== undefined) {
+      valueLine = escapeHtml(String(cc.current_value)) + ' <span class="cc-faint">(nog geen baseline-vergelijking)</span>';
+    }
+    if (valueLine) {
+      rows.push('<div class="cc-row"><span class="cc-k">Huidige waarde</span><span class="cc-v">' + valueLine + '</span></div>');
+    }
+    if (cc.next_review_date_indicative) {
+      rows.push(
+        '<div class="cc-row"><span class="cc-k">Volgende hermeting</span><span class="cc-v">' +
+        escapeHtml(cc.next_review_date_indicative) + ' <span class="cc-faint">(indicatief)</span></span></div>'
+      );
+    }
+    const step = (cc.playbook_step && (cc.playbook_step.title || cc.playbook_step.action))
+      ? '<div class="cc-step"><b>Eerstvolgende stap:</b> ' + escapeHtml(cc.playbook_step.title || cc.playbook_step.action) + '</div>'
+      : "";
+    const footer = cc.review_rule
+      ? '<div class="cc-foot">' + escapeHtml(decodeKbEntities(cc.review_rule)) + '</div>'
+      : "";
+    return (
+      '<div class="cc-card">' +
+        '<div class="cc-label">Command Center &middot; actieve diagnose</div>' +
+        '<h3>' + escapeHtml(cc.diagnosis_title || cc.domain || "") + '</h3>' +
+        rows.join("") +
+        step +
+        footer +
+      '</div>'
+    );
   }
 
   function renderQaReturnExpired(message) {
