@@ -976,13 +976,6 @@
               '<div class="price">€25 (herscan inbegrepen)</div>' +
               '<button data-path="digital">Kies digitaal + herscan</button>' +
             '</div>' +
-            '<div class="path-card secondary">' +
-              '<div class="path-tag">Doe-het-zelf werkboek</div>' +
-              '<h4>Modulaire Toolkit</h4>' +
-              '<p>Het volledige Zenpertise-werkboek: 6 modules met kant-en-klare tools voor elk aandachtsgebied (strategie, operaties, klantretentie, financieel, team, marketing) — zelf in te vullen, in je eigen tempo.</p>' +
-              '<div class="price">€1495 (eenmalig, alle 6 modules)</div>' +
-              '<button data-path="toolkit">Kies de Modulaire Toolkit</button>' +
-            '</div>' +
           '</div>' +
           '<div id="pathConfirm"></div>' +
           financeUploadHtml +
@@ -1166,12 +1159,33 @@
             '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppModelType" value="solo" checked> Solo</label>' +
             '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppModelType" value="groep"> Groepspraktijk</label>' +
           '</div>' +
+          '<div style="margin-bottom:8px;">' +
+            '<div style="font-size:11.5px;color:#667;margin-bottom:4px;">Conventiestatus (bepaalt met welk tarief we rekenen)</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="geconventioneerd" checked> Geconventioneerd</label>' +
+              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="niet-toegetreden"> Niet-toegetreden</label>' +
+              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="gedeeltelijk"> Gedeeltelijk</label>' +
+              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="gemengd"> Gemengd (team met beide statussen)</label>' +
+            '</div>' +
+            '<div id="ppEigenTariefWrap" style="display:none;margin-top:6px;">' +
+              '<input type="number" min="0" step="0.01" id="ppEigenTarief" placeholder="Je eigen tarief per sessie/consult (€)" title="Enkel van toepassing als niet-toegetreden of gemengd — anders rekenen we met het RIZIV/sectorgemiddelde tarief." style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '</div>' +
+          '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
             '<input type="number" min="0" step="0.1" id="ppVte" placeholder="VTE behandelaars" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '<input type="number" min="0" step="1" id="ppAantalTherapeuten" placeholder="Aantal therapeuten (headcount)" title="Los van VTE — bv. 2 halftijdse therapeuten = VTE 1.0 maar aantal 2." style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="1" id="ppLocaties" placeholder="Aantal locaties" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="1" id="ppBehandelruimtes" placeholder="Behandelruimtes" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="0.1" id="ppOndersteunend" placeholder="VTE ondersteunend personeel" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="1" id="ppBeschikbareSlots" placeholder="Behandelslots effectief open/week" title="Hoeveel behandelslots staan er deze week écht open in je agenda? (kan lager liggen dan je theoretische capaciteit — voorkomt een te optimistische ROI-raming)" style="grid-column:1/-1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+          '</div>' +
+          '<div style="margin-top:8px;">' +
+            '<div style="font-size:11.5px;color:#667;margin-bottom:4px;">Gerealiseerde omzet (optioneel, preciezer dan een vlak tarief — heeft voorrang zodra ingevuld)</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">' +
+              '<input type="number" min="0" step="0.01" id="ppOmzetPeriode" placeholder="Omzet periode (€)" title="Je werkelijke totale omzet over de periode hieronder." style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+              '<input type="number" min="0" step="1" id="ppVolumePeriode" placeholder="Sessies in die periode" title="Aantal effectief uitgevoerde sessies/consulten in dezelfde periode." style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+              '<input type="number" min="0" step="1" id="ppMeetperiodeWeken" placeholder="Periode (weken)" title="Over hoeveel weken gelden de omzet- en sessiecijfers hierboven?" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<div class="qa-addon-picker">' +
@@ -1202,6 +1216,18 @@
       radio.addEventListener("change", () => {
         const addonPrice = QA_ADDON_PRICES_JS[radio.value] || 0;
         totalPriceEl.textContent = basePrice + addonPrice;
+      });
+    });
+
+    // Eigen-tarief-veld enkel tonen/relevant bij "niet-toegetreden" of "gemengd" (taak #270/#271,
+    // Fase0-§7.1) — bij geconventioneerd of gedeeltelijk rekent de motor sowieso met het
+    // RIZIV/sectorgemiddelde tarief (zie main.py _sector_tarief), dus het veld zou daar enkel
+    // verwarren. Let op: zelfs bij "niet-toegetreden"/"gemengd" wint een ingevulde gerealiseerde
+    // omzet (hieronder) altijd van dit vlakke tarief — zie de tier-volgorde in _sector_tarief.
+    const ppEigenTariefWrap = document.getElementById("ppEigenTariefWrap");
+    confirmEl.querySelectorAll('input[name="ppConventiestatus"]').forEach((radio) => {
+      radio.addEventListener("change", () => {
+        ppEigenTariefWrap.style.display = (radio.value === "niet-toegetreden" || radio.value === "gemengd") ? "block" : "none";
       });
     });
 
@@ -1277,18 +1303,37 @@
     // leeg profiel stuurt gewoon null-velden mee, de backend degradeert dan gracieus naar enkel
     // Universal- + Sector-tier KPI's (zie PracticeProfile/get_active_kpis in main.py).
     const ppModelTypeEl = document.querySelector('input[name="ppModelType"]:checked');
+    const ppConventiestatusEl = document.querySelector('input[name="ppConventiestatus"]:checked');
     const ppVteEl = document.getElementById("ppVte");
+    const ppAantalTherapeutenEl = document.getElementById("ppAantalTherapeuten");
     const ppLocatiesEl = document.getElementById("ppLocaties");
     const ppBehandelruimtesEl = document.getElementById("ppBehandelruimtes");
     const ppOndersteunendEl = document.getElementById("ppOndersteunend");
     const ppBeschikbareSlotsEl = document.getElementById("ppBeschikbareSlots");
+    const ppEigenTariefEl = document.getElementById("ppEigenTarief");
+    const ppOmzetPeriodeEl = document.getElementById("ppOmzetPeriode");
+    const ppVolumePeriodeEl = document.getElementById("ppVolumePeriode");
+    const ppMeetperiodeWekenEl = document.getElementById("ppMeetperiodeWeken");
     const toNumOrNull = (el) => (el && el.value !== "" ? Number(el.value) : null);
+    // Eigen tarief wordt bewust enkel meegestuurd bij "niet-toegetreden"/"gemengd" — bij een andere
+    // conventiestatus negeert de backend het toch (zie main.py _sector_tarief), maar zo blijft
+    // ook het datamodel zelf eerlijk over wanneer dit veld effectief betekenis heeft. Gerealiseerde
+    // omzet/volume/meetperiode (taak #270/#271, Fase0-§7.1/§7.2) sturen we altijd mee als ingevuld —
+    // die tier-1-data heeft sowieso voorrang in _sector_tarief, ongeacht conventiestatus.
+    const conventiestatusValue = (ppConventiestatusEl && ppConventiestatusEl.value) || null;
+    const eigenTariefRelevant = conventiestatusValue === "niet-toegetreden" || conventiestatusValue === "gemengd";
     const practiceProfile = {
       model_type: (ppModelTypeEl && ppModelTypeEl.value) || null,
       vte: toNumOrNull(ppVteEl),
+      aantal_therapeuten: toNumOrNull(ppAantalTherapeutenEl),
       locaties: toNumOrNull(ppLocatiesEl),
       behandelruimtes: toNumOrNull(ppBehandelruimtesEl),
       ondersteunend_personeel_vte: toNumOrNull(ppOndersteunendEl),
+      conventiestatus: conventiestatusValue,
+      eigen_tarief: eigenTariefRelevant ? toNumOrNull(ppEigenTariefEl) : null,
+      gerealiseerde_omzet_periode: toNumOrNull(ppOmzetPeriodeEl),
+      uitgevoerd_behandelvolume: toNumOrNull(ppVolumePeriodeEl),
+      meetperiode_weken: toNumOrNull(ppMeetperiodeWekenEl),
       beschikbare_behandelslots_week: toNumOrNull(ppBeschikbareSlotsEl),
     };
 
