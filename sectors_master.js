@@ -104,41 +104,6 @@
         { key: "vormConsult", label: "Gewenste vorm van consult?", quick: ["Fysiek op de praktijk", "Telefonisch", "Huisbezoek"] },
       ],
     },
-    psycholoog: {
-      name: "Psycholoog", icon: "🧠", desc: "Intake begeleiding",
-      docTitle: "Intakeformulier Psychologische Begeleiding",
-      questions: [
-        { key: "naam", label: "Voor- en achternaam?" },
-        { key: "geboortedatum", label: "Geboortedatum?" },
-        { key: "telefoon", label: "Telefoonnummer?" },
-        { key: "contactNoodgeval", label: "Naam en telefoonnummer van een contactpersoon in geval van nood?" },
-        { key: "verwijzer", label: "Doorverwezen door (huisarts, zelf, andere)?" },
-        { key: "hulpvraag", label: "Wat is de hulpvraag / reden voor aanmelding?" },
-        { key: "sindsWanneer", label: "Sinds wanneer speelt dit?" },
-        { key: "eerdereBegeleiding", label: "Eerdere psychologische begeleiding of behandeling gehad?" },
-        { key: "medicatiePsychiatrisch", label: "Huidige medicatie (bv. antidepressiva, kalmerende medicatie)?" },
-        { key: "veiligheid", label: "Zijn er op dit moment zorgen over uw veiligheid (bv. gedachten aan zelfbeschadiging)?", quick: ["Nee", "Soms", "Ja — graag zo snel mogelijk contact"] },
-        { key: "doelBegeleiding", label: "Wat hoopt u te bereiken met de begeleiding?" },
-      ],
-    },
-    thuisverpleegkundige: {
-      name: "Thuisverpleegkundige", icon: "🏠", desc: "Zorgvraag-intake",
-      docTitle: "Intakeformulier Thuisverpleging",
-      questions: [
-        { key: "naam", label: "Voor- en achternaam van de patiënt?" },
-        { key: "geboortedatum", label: "Geboortedatum?" },
-        { key: "adres", label: "Volledig adres voor de huisbezoeken?" },
-        { key: "telefoon", label: "Telefoonnummer?" },
-        { key: "contactMantelzorger", label: "Naam en telefoonnummer van contactpersoon/mantelzorger?" },
-        { key: "voorschrijvendeArts", label: "Naam van de voorschrijvende arts?" },
-        { key: "redenZorg", label: "Reden van de zorgvraag (bv. wondzorg, medicatie toedienen, insuline, hygiënische zorg)?" },
-        { key: "frequentie", label: "Gewenste frequentie van de bezoeken (bv. dagelijks, 2x/week)?" },
-        { key: "mobiliteit", label: "Mobiliteit van de patiënt (bv. zelfstandig, rolstoel, bedlegerig)?" },
-        { key: "medicatieOverzicht", label: "Overzicht van huidige medicatie?" },
-        { key: "allergieen", label: "Allergieën?" },
-        { key: "bijzonderheden", label: "Bijzonderheden waarmee de verpleegkundige rekening moet houden (bv. besmetting, valrisico, dementie)?" },
-      ],
-    },
   };
 
   const SAMPLE_DATA = {
@@ -183,24 +148,6 @@
       voorgeschiedenis: "Hypertensie, geen operaties",
       dringendheid: "Kan enkele dagen wachten",
       vormConsult: "Fysiek op de praktijk",
-    },
-    psycholoog: {
-      naam: "Lotte Verstraete", geboortedatum: "19/01/1998", telefoon: "0470 12 34 56",
-      contactNoodgeval: "Marie Verstraete (moeder) — 0470 65 43 21",
-      verwijzer: "Zelf aangemeld", hulpvraag: "Aanhoudende stress en piekeren i.v.m. werk",
-      sindsWanneer: "Ongeveer 4 maanden",
-      eerdereBegeleiding: "Neen, dit is de eerste keer",
-      medicatiePsychiatrisch: "Geen",
-      veiligheid: "Nee",
-      doelBegeleiding: "Grip krijgen op stress en betere werk-privébalans",
-    },
-    thuisverpleegkundige: {
-      naam: "Roger Peeters", geboortedatum: "11/04/1941", adres: "Kerkstraat 22, 3500 Hasselt",
-      telefoon: "011 22 33 44", contactMantelzorger: "Ingrid Peeters (dochter) — 0473 44 55 66",
-      voorschrijvendeArts: "Dr. S. Aerts", redenZorg: "Dagelijkse insulinetoediening en wondzorg been",
-      frequentie: "Dagelijks, ochtend", mobiliteit: "Beperkt mobiel, gebruikt rollator",
-      medicatieOverzicht: "Insuline, bloedverdunners", allergieen: "Geen bekende allergieën",
-      bijzonderheden: "Verhoogd valrisico, lichte vergeetachtigheid",
     },
   };
 
