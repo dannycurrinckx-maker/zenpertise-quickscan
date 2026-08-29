@@ -4,11 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Zenpertise Quick Scan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --primary: #2f6f5e; --primary-dark: #234f42; --bg: #f4f7f6;
     --bot-bubble: #eef3f1; --user-bubble: #2f6f5e; --border: #dbe4e1;
     --green: #2e8b57; --amber: #c98a2c; --red: #c0392b;
+    --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --cream: #f8f3e9; --cream-deep: #f1e9d8;
   }
   * { box-sizing: border-box; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:#1f2d29; display:flex; justify-content:center; padding:24px; }
@@ -50,47 +55,60 @@
   .report .sub { font-size:12.5px; color:#667; margin-bottom:16px; }
   .bsc-chart { border:1px solid var(--border); border-radius:12px; padding:10px 8px 4px; margin-bottom:16px; background:white; }
 
-  /* "ZENPERTISE OS"-stijl dashboard rond de BSC-ringgrafiek */
-  .zos-dashboard { background:#faf7f1; border:1px solid var(--border); border-radius:16px; padding:22px 20px; margin-bottom:18px; display:grid; grid-template-columns: 1fr 1.05fr 1fr; gap:20px; align-items:start; }
+  /* "ZENPERTISE OS"-stijl dashboard rond de BSC-ringgrafiek — premium "Practice Balance
+     Scorecard"-uitvoering: warm crème canvas, dieptgroen + goud accent, sierlijke Fraunces-
+     display-typografie voor de kop/score, en meer beeldrijkdom in de ringgrafiek (icoon-badges +
+     centrale "wave-mesh"-decoratie) zonder de onderliggende datastructuur/HTML-hooks te wijzigen. */
+  .zos-dashboard {
+    position:relative; overflow:hidden;
+    background:
+      radial-gradient(circle at 14% 12%, rgba(201,138,44,0.10), transparent 42%),
+      radial-gradient(circle at 88% 82%, rgba(35,79,66,0.08), transparent 46%),
+      linear-gradient(180deg, var(--cream) 0%, var(--cream-deep) 100%);
+    border:1px solid #e6dcc4; border-radius:20px; padding:26px 24px 22px;
+    margin-bottom:18px; display:grid; grid-template-columns: 1fr 1.05fr 1fr; gap:22px; align-items:start;
+    box-shadow: 0 1px 2px rgba(35,79,66,0.04), 0 10px 30px -18px rgba(35,79,66,0.28);
+  }
   .zos-header { grid-column: 1 / -1; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
-  .zos-logo { display:flex; align-items:center; gap:8px; }
-  .zos-logo .mark { width:28px; height:28px; flex-shrink:0; }
+  .zos-logo { display:flex; align-items:center; gap:9px; }
+  .zos-logo .mark { width:30px; height:30px; flex-shrink:0; }
   .zos-logo .word { line-height:1.12; }
-  .zos-logo .word b { display:block; font-size:13px; letter-spacing:0.03em; color:var(--primary-dark); }
-  .zos-logo .word span { display:block; font-size:10.5px; font-weight:800; letter-spacing:0.14em; color:var(--amber); }
-  .zos-eyebrow { font-size:10px; font-weight:700; letter-spacing:0.12em; color:#8a7f6f; text-transform:uppercase; white-space:nowrap; border-bottom:2px solid var(--amber); padding-bottom:4px; }
-  .zos-col { display:flex; flex-direction:column; gap:12px; min-width:0; }
-  .zos-headline { font-size:19px; line-height:1.28; color:#22322c; margin:2px 0 0; font-weight:700; }
+  .zos-logo .word b { display:block; font-family:var(--font-display); font-size:14px; letter-spacing:0.02em; color:var(--primary-dark); font-weight:600; }
+  .zos-logo .word span { display:block; font-size:10px; font-weight:800; letter-spacing:0.16em; color:var(--amber); }
+  .zos-eyebrow { font-size:10px; font-weight:700; letter-spacing:0.14em; color:#8a7f6f; text-transform:uppercase; white-space:nowrap; border-bottom:2px solid var(--amber); padding-bottom:4px; }
+  .zos-col { display:flex; flex-direction:column; gap:13px; min-width:0; position:relative; }
+  .zos-headline { font-family:var(--font-display); font-size:23px; line-height:1.22; color:#22322c; margin:3px 0 0; font-weight:600; letter-spacing:-0.005em; }
   .zos-headline em { font-style:normal; color:var(--amber); }
-  .zos-sub { font-size:12px; line-height:1.5; color:#5a6a63; }
+  .zos-sub { font-size:12.5px; line-height:1.55; color:#5a6a63; }
   .zos-sub strong { color:#22322c; }
-  .health-card { background:white; border:1px solid var(--border); border-radius:12px; padding:13px 15px; }
-  .health-card .eyebrow { font-size:9.5px; font-weight:700; letter-spacing:0.1em; color:#8a7f6f; text-transform:uppercase; margin-bottom:4px; }
+  .health-card { background:white; border:1px solid #ece3cd; border-radius:14px; padding:14px 16px 15px; box-shadow:0 8px 20px -14px rgba(35,79,66,0.35); }
+  .health-card .eyebrow { font-size:9.5px; font-weight:700; letter-spacing:0.12em; color:#8a7f6f; text-transform:uppercase; margin-bottom:5px; }
   .health-card .row { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px; }
-  .health-card .score { font-size:32px; font-weight:800; color:var(--primary-dark); }
-  .health-card .score small { font-size:12.5px; font-weight:600; color:#8a7f6f; }
-  .health-card .trend { font-size:10.5px; color:var(--primary-dark); font-weight:700; }
-  .health-bar { height:6px; border-radius:999px; background:linear-gradient(90deg,#c0392b,#c98a2c,#2e8b57); margin-top:9px; position:relative; }
-  .health-bar .dot { position:absolute; top:50%; width:11px; height:11px; border-radius:50%; background:white; border:2.5px solid var(--primary-dark); transform:translate(-50%,-50%); }
-  .health-bar-labels { display:flex; justify-content:space-between; font-size:9px; color:#8a7f6f; margin-top:4px; }
-  .zos-quote { font-size:11.5px; font-style:italic; color:#5a6a63; border-left:2px solid var(--amber); padding-left:10px; }
+  .health-card .score { font-family:var(--font-display); font-size:36px; font-weight:600; color:var(--primary-dark); line-height:1; }
+  .health-card .score small { font-family:-apple-system,BlinkMacSystemFont,sans-serif; font-size:12.5px; font-weight:600; color:#8a7f6f; }
+  .health-card .trend { font-size:10.5px; color:var(--primary-dark); font-weight:700; background:#eef3f1; border-radius:999px; padding:3px 9px; }
+  .health-bar { height:7px; border-radius:999px; background:linear-gradient(90deg,#c0392b,#c98a2c,#2e8b57); margin-top:11px; position:relative; box-shadow:inset 0 1px 2px rgba(0,0,0,0.12); }
+  .health-bar .dot { position:absolute; top:50%; width:13px; height:13px; border-radius:50%; background:white; border:3px solid var(--primary-dark); transform:translate(-50%,-50%); box-shadow:0 1px 4px rgba(0,0,0,0.25); }
+  .health-bar-labels { display:flex; justify-content:space-between; font-size:9px; color:#8a7f6f; margin-top:5px; }
+  .zos-quote { font-family:var(--font-display); font-size:12.5px; font-style:italic; color:#5a6a63; border-left:2px solid var(--amber); padding-left:11px; font-weight:500; }
   .zos-chart-col { align-items:center; text-align:center; }
-  .priorities-title, .quickwins-title { font-size:10.5px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a7f6f; margin:2px 0 2px; }
-  .priority-card { display:flex; align-items:center; gap:10px; background:white; border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
-  .priority-card .rank-icon { width:32px; height:32px; border-radius:50%; background:#fbe7ce; color:var(--amber); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .priorities-title, .quickwins-title { font-size:10.5px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#8a7f6f; margin:2px 0 2px; }
+  .priority-card { display:flex; align-items:center; gap:11px; background:white; border:1px solid #ece3cd; border-radius:13px; padding:10px 12px; margin-bottom:8px; box-shadow:0 6px 16px -12px rgba(35,79,66,0.35); transition:transform .15s ease; }
+  .priority-card .rank-icon { width:33px; height:33px; border-radius:50%; background:#fbe7ce; color:var(--amber); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:inset 0 0 0 1px rgba(201,138,44,0.25); }
   .priority-card .body { flex:1; min-width:0; }
-  .priority-card .num { font-size:10px; color:#8a7f6f; font-weight:700; }
+  .priority-card .num { font-size:10px; color:#8a7f6f; font-weight:700; letter-spacing:0.04em; }
   .priority-card .name { font-size:12px; font-weight:700; color:#22322c; }
   .priority-card .val { font-size:14px; font-weight:800; }
   .priority-card .deficit { font-size:10px; color:#8a7f6f; }
-  .quickwin-item { display:flex; align-items:flex-start; gap:8px; font-size:12px; padding:4px 0; }
-  .quickwin-item .check { width:16px; height:16px; border-radius:50%; background:#e2efe8; color:var(--green); display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .priority-card .arrow { flex-shrink:0; color:#c3b896; }
+  .quickwin-item { display:flex; align-items:flex-start; gap:9px; font-size:12px; padding:5px 0; }
+  .quickwin-item .check { width:17px; height:17px; border-radius:50%; background:#e2efe8; color:var(--green); display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; box-shadow:inset 0 0 0 1px rgba(46,139,87,0.2); }
   .quickwin-item .qtitle { font-weight:700; color:#22322c; display:block; }
   .quickwin-item .qimpact { font-size:10px; color:#8a7f6f; }
-  .zos-footer { grid-column: 1 / -1; display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--border); padding-top:14px; margin-top:2px; flex-wrap:wrap; }
-  .zos-stat { display:flex; align-items:center; gap:8px; flex:1; min-width:130px; }
-  .zos-stat .ic { width:28px; height:28px; border-radius:50%; background:#eef3f1; color:var(--primary-dark); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .zos-stat .val { font-size:14px; font-weight:800; color:#22322c; line-height:1.1; }
+  .zos-footer { grid-column: 1 / -1; display:flex; justify-content:space-between; gap:10px; border-top:1px solid #e6dcc4; padding-top:16px; margin-top:4px; flex-wrap:wrap; }
+  .zos-stat { display:flex; align-items:center; gap:9px; flex:1; min-width:130px; }
+  .zos-stat .ic { width:30px; height:30px; border-radius:50%; background:white; color:var(--primary-dark); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 10px -6px rgba(35,79,66,0.4), inset 0 0 0 1px #ece3cd; }
+  .zos-stat .val { font-family:var(--font-display); font-size:15px; font-weight:600; color:#22322c; line-height:1.15; }
   .zos-stat .lbl { font-size:9.5px; color:#8a7f6f; }
   @media (max-width: 700px) {
     .zos-dashboard { grid-template-columns: 1fr; }
@@ -713,28 +731,42 @@
   // afgekapte labels (zoals "Leiderschap") en overlappende "Doel"-tekst, en geeft elk
   // perspectief een eigen, duidelijk afgebakend segment met eigen statuskleur.
   function buildBscChartSvg(perspScores) {
-    const W = 520, H = 400, cx = 260, cy = 200;
-    const Router = 112, Rinner = 70;
-    const labelR = Router + 24;
+    const W = 520, H = 440, cx = 260, cy = 214;
+    const Router = 106, Rinner = 68;
+    const badgeR = Router + 18, badgeSize = 30;
+    const labelR = Router + 52;
     const N = perspScores.length;
     const segSpan = 360 / N;
     const gap = 4;
     const uid = "bsc" + Math.random().toString(36).slice(2, 8);
 
     const overall = Math.round(perspScores.reduce((a, p) => a + p.score, 0) / N);
+    const priKeys = BSC.map((p) => p.key);
 
     const defs = `<defs>
       <radialGradient id="${uid}-bg" cx="50%" cy="50%" r="65%">
-        <stop offset="0%" stop-color="#2f6f5e" stop-opacity="0.08"/>
+        <stop offset="0%" stop-color="#c98a2c" stop-opacity="0.10"/>
+        <stop offset="55%" stop-color="#2f6f5e" stop-opacity="0.07"/>
         <stop offset="100%" stop-color="#2f6f5e" stop-opacity="0"/>
       </radialGradient>
       <filter id="${uid}-shadow" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0f2a22" flood-opacity="0.18"/>
       </filter>
+      <filter id="${uid}-badge-shadow" x="-60%" y="-60%" width="220%" height="220%">
+        <feDropShadow dx="0" dy="1.5" stdDeviation="1.8" flood-color="#0f2a22" flood-opacity="0.22"/>
+      </filter>
     </defs>`;
 
     let inner = "";
-    inner += `<circle cx="${cx}" cy="${cy}" r="${Router * 1.28}" fill="url(#${uid}-bg)"/>`;
+    inner += `<circle cx="${cx}" cy="${cy}" r="${Router * 1.42}" fill="url(#${uid}-bg)"/>`;
+    // Fijne "instrument-dial" sierring net buiten de segmenten — decoratieve echo van het
+    // "wave-mesh"-referentiebeeld, zonder de leesbaarheid van de score te hinderen.
+    inner += `<circle cx="${cx}" cy="${cy}" r="${Router + 7}" fill="none" stroke="#c98a2c" stroke-opacity="0.35" stroke-width="1"/>`;
+    for (let t = 0; t < 360; t += 15) {
+      const [tx1, ty1] = ringPolar(cx, cy, Router + 3, t);
+      const [tx2, ty2] = ringPolar(cx, cy, Router + 7, t);
+      inner += `<line x1="${tx1.toFixed(2)}" y1="${ty1.toFixed(2)}" x2="${tx2.toFixed(2)}" y2="${ty2.toFixed(2)}" stroke="#c98a2c" stroke-opacity="0.28" stroke-width="1"/>`;
+    }
 
     perspScores.forEach((p, i) => {
       const centerAngle = i * segSpan;
@@ -744,20 +776,32 @@
       const path = ringWedgePath(cx, cy, Router, Rinner, startAngle, endAngle);
       inner += `<path d="${path}" fill="${tier.fill}" filter="url(#${uid}-shadow)"/>`;
 
+      // Icoon-badge op de rand van elk segment (echoot de "radiating icon"-stijl uit het referentiebeeld).
+      const [bx, by] = ringPolar(cx, cy, badgeR, centerAngle);
+      inner += `<g filter="url(#${uid}-badge-shadow)">` +
+        `<circle cx="${bx.toFixed(2)}" cy="${by.toFixed(2)}" r="${badgeSize / 2}" fill="white" stroke="${tier.fill}" stroke-width="2"/>` +
+        `<g transform="translate(${(bx - 8).toFixed(2)}, ${(by - 8).toFixed(2)})">` +
+          `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${tier.fill}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${DASH_ICON_PATHS[priKeys[i]] || DASH_ICON_PATHS.processen}</svg>` +
+        `</g>` +
+      `</g>`;
+
       const [lx, ly] = ringPolar(cx, cy, labelR, centerAngle);
       const sinC = Math.sin(centerAngle * Math.PI / 180);
       const anchor = Math.abs(sinC) < 0.35 ? "middle" : (sinC > 0 ? "start" : "end");
       const deficitText = p.score < HEALTHY_TARGET ? " (-" + (HEALTHY_TARGET - p.score) + ")" : "";
       inner += `<text x="${lx.toFixed(2)}" y="${ly.toFixed(2)}" font-family="-apple-system,Helvetica,Arial,sans-serif" text-anchor="${anchor}">` +
-        `<tspan x="${lx.toFixed(2)}" dy="0" font-size="13" font-weight="700" fill="#234f42">${svgLabel(displayPerspLabel(p.label))}</tspan>` +
+        `<tspan x="${lx.toFixed(2)}" dy="0" font-size="12.5" font-weight="700" fill="#234f42">${svgLabel(displayPerspLabel(p.label))}</tspan>` +
         `<tspan x="${lx.toFixed(2)}" dy="16" font-size="13" font-weight="700" fill="${tier.fill}">${p.score}${deficitText}</tspan>` +
         `</text>`;
     });
 
-    // Centrale hub met het gemiddelde totaalscore
-    inner += `<circle cx="${cx}" cy="${cy}" r="${Rinner - 6}" fill="white" stroke="#e1e8e5" stroke-width="1"/>`;
-    inner += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="30" font-weight="800" fill="#234f42">${overall}</text>`;
-    inner += `<text x="${cx}" y="${cy + 13}" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="10" font-weight="700" letter-spacing="0.04em" fill="#78897f">/100 SCORE</text>`;
+    // Centrale hub met het gemiddelde totaalscore — omringd door een subtiele "wave-mesh"-textuur
+    // (dunne concentrische ringsegmenten in de merkkleuren) als decoratief centerstuk.
+    inner += `<circle cx="${cx}" cy="${cy}" r="${Rinner - 2}" fill="none" stroke="#2f6f5e" stroke-opacity="0.14" stroke-width="1" stroke-dasharray="1.5 3.5"/>`;
+    inner += `<circle cx="${cx}" cy="${cy}" r="${Rinner - 10}" fill="none" stroke="#c98a2c" stroke-opacity="0.18" stroke-width="1" stroke-dasharray="1 3"/>`;
+    inner += `<circle cx="${cx}" cy="${cy}" r="${Rinner - 16}" fill="white" stroke="#e6dcc4" stroke-width="1.2"/>`;
+    inner += `<text x="${cx}" y="${cy - 5}" text-anchor="middle" font-family="'Fraunces',Georgia,serif" font-size="32" font-weight="600" fill="#234f42">${overall}</text>`;
+    inner += `<text x="${cx}" y="${cy + 15}" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="9.5" font-weight="700" letter-spacing="0.08em" fill="#8a7f6f">/100 SCORE</text>`;
 
     const legendItems = [
       ["#234f42", "Sterk (≥80)"],
@@ -786,6 +830,7 @@
     return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
   }
   const CHECK_ICON = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ARROW_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
 
   // Korte, neutrale onderwerp-titels per vraag (géén oplossingstekst — die blijft achter de paywall
   // in het "Verbeterpunten"-blok verderop, net zoals in de rest van deze teaserpagina).
@@ -825,6 +870,7 @@
             '<div class="val" style="color:' + ringTierColor(p.score).fill + '">' + p.score + '/100</div>' +
             '<div class="deficit">' + deficitTxt + '</div>' +
           '</div>' +
+          '<div class="arrow">' + ARROW_ICON + '</div>' +
         '</div>';
     });
 
