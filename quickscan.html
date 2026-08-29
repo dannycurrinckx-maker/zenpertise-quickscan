@@ -661,8 +661,16 @@
   // enz. Enkel de tekst die de gebruiker effectief te zien krijgt (grafieklabel, dashboard-kaarten,
   // score-cards) wisselt per sector via displayPerspLabel() hieronder. "Leren & Groei" blijft
   // expliciet ongewijzigd voor alle sectoren (bevestigd in het addendum).
+  //
+  // Het addendum noemde letterlijk enkel kine als voorbeeld, maar logopedist, tandarts en
+  // huisarts spreken hun bezoekers in het Belgisch zorgjargon ook aan als "patiënt" — bewust
+  // uitgebreid (na expliciete bevestiging) voor consistente, professionele terminologie.
+  // Dierenarts blijft bewust op "Klant": de eigenaar (praktijkcontact) is niet het dier (patiënt).
   const PERSPECTIVE_LABEL_OVERRIDES = {
     kinesist: { "Klant": "Patiënt" },
+    logopedist: { "Klant": "Patiënt" },
+    tandarts: { "Klant": "Patiënt" },
+    huisarts: { "Klant": "Patiënt" },
   };
   function perspectiveDisplayLabel(label, sectorName) {
     if (!sectorName || !label) return label;
