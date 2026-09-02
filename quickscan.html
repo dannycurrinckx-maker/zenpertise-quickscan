@@ -168,6 +168,10 @@
   .ai-qa-panel .ai-msg { font-size:12.5px; padding:8px 11px; border-radius:10px; max-width:85%; line-height:1.4; }
   .ai-qa-panel .ai-msg.user { align-self:flex-end; background:var(--user-bubble); color:white; }
   .ai-qa-panel .ai-msg.bot { align-self:flex-start; background:var(--bot-bubble); }
+  .ai-qa-panel .ai-msg.ai-typing { color:#667; font-style:italic; }
+  .ai-qa-panel .ai-msg.ai-error { background:#fdecea; color:#8a2f22; }
+  .ai-retry-btn { margin-top:4px; padding:4px 10px; border-radius:7px; border:1px solid currentColor; background:transparent; color:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+  .ai-retry-btn:hover { background:rgba(0,0,0,0.05); }
   .ai-qa-panel .row { display:flex; gap:8px; }
   .ai-qa-panel input[type=text] { flex:1; padding:9px 12px; border-radius:8px; border:1px solid var(--border); font-size:13px; }
   .ai-qa-panel button { background:var(--primary); color:white; border:none; border-radius:8px; padding:0 16px; font-size:13px; cursor:pointer; }
@@ -229,6 +233,8 @@
   .qa-popup-msg { max-width:82%; padding:9px 13px; border-radius:14px; font-size:13.5px; line-height:1.45; white-space:pre-wrap; }
   .qa-popup-msg.bot { align-self:flex-start; background:white; border-bottom-left-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.08); }
   .qa-popup-msg.user { align-self:flex-end; background:var(--primary); color:white; border-bottom-right-radius:4px; }
+  .qa-popup-msg.qa-popup-typing { color:#667; font-style:italic; box-shadow:none; }
+  .qa-popup-msg.qa-popup-error { background:#fdecea; color:#8a2f22; box-shadow:none; }
   .qa-popup-input-row { display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--border); background:white; flex-shrink:0; }
   .qa-popup-input-row input { flex:1; padding:10px 13px; border-radius:10px; border:1px solid var(--border); font-size:13.5px; }
   .qa-popup-input-row button { background:var(--primary); color:white; border:none; border-radius:10px; padding:0 16px; font-size:13.5px; cursor:pointer; }
@@ -327,6 +333,7 @@
       questions: [
         {
           key: "patientenPerWeek", label: "Hoeveel patiënten/cliënten zag je gemiddeld per week, de afgelopen maand? (getal)",
+          numeric: { min: 0 },
           status: (v, allAnswers) => {
             const seen = parseFloat(v);
             const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
@@ -342,6 +349,7 @@
         },
         {
           key: "nietBetaaldPerWeek", label: "Bij hoeveel patiënten/cliënten per week blijft de betaling gemiddeld uit (niet meteen of niet na herinnering betaald)? (getal)",
+          numeric: { min: 0 },
           status: (v, allAnswers) => {
             const unpaid = parseFloat(v);
             const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
@@ -356,10 +364,21 @@
           improve: "Zet een vast opvolgproces op voor onbetaalde behandelingen (automatische herinnering na 14 en 30 dagen) om betalingsachterstand te verlagen.",
         },
         {
+          // Masterplan §2 (P0-3, taak #283): "Omzet gelijk resulteert in advies over omzetdaling" —
+          // deze vraag heeft 3 echte antwoordcodes (Gestegen/Gelijk gebleven/Gedaald) die status()
+          // naar 2 niet-groene statussen mapt (amber = stagnatie, red = echte daling). Vóór deze fix
+          // was `improve` één vlakke string die altijd over "de omzetdaling" sprak — ook bij een
+          // amber/"Gelijk gebleven"-antwoord, waar helemaal geen daling was. Nu is `improve` een
+          // object per status (zelfde patroon als QUESTION_LIBRARY["...gedaald?"].improve in
+          // main.py), gelezen via improveText() hieronder, zodat het advies altijd aansluit bij het
+          // effectief gegeven antwoord in plaats van willekeurig te voelen.
           key: "omzetTrend", label: "Is de omzet de afgelopen 6 maanden gestegen, gelijk gebleven of gedaald?",
           quick: ["Gestegen", "Gelijk gebleven", "Gedaald"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("gestegen")) return "green"; if (s.startsWith("gelijk")) return "amber"; return "red"; },
-          improve: "Breng in kaart welke behandelingen/diensten het meest bijdragen aan de omzetdaling en bekijk gericht upselling- of retentie-acties.",
+          improve: {
+            amber: "De omzet stagneert: breng in kaart welke diensten wél groeien en welke achterblijven, en zet gericht 1-2 upsell- of cross-sell-acties op binnen je bestaande patiëntenbestand.",
+            rood: "Breng in kaart welke behandelingen/diensten het meest bijdragen aan de omzetdaling en zet een gericht retentie- en instroomplan op om de daling te stoppen.",
+          },
         },
       ],
     },
@@ -368,11 +387,13 @@
       questions: [
         {
           key: "wachttijd", label: "Wat is de gemiddelde wachttijd tussen aanvraag en eerste afspraak, in dagen? (getal)",
+          numeric: { min: 0 },
           status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 3) return "green"; if (n <= 10) return "amber"; return "red"; },
           improve: "Verkort de wachttijd tot de eerste afspraak: overweeg een wachtlijst-automatisering die vrijgekomen slots meteen aanbiedt aan wachtenden.",
         },
         {
           key: "noShowPerWeek", label: "Hoeveel afspraken zijn er gemiddeld per week een no-show (patiënt komt niet opdagen)? (getal)",
+          numeric: { min: 0 },
           status: (v, allAnswers) => {
             const noShow = parseFloat(v);
             const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
@@ -388,6 +409,7 @@
         },
         {
           key: "laattijdigeAnnuleringen", label: "Hoeveel afspraken worden er gemiddeld per week laattijdig geannuleerd (binnen 24-48u vooraf, te laat om het slot nog opnieuw in te vullen)? (getal)",
+          numeric: { min: 0 },
           status: (v, allAnswers) => {
             const laat = parseFloat(v);
             const cap = parseFloat(allAnswers && allAnswers.maxCapaciteit);
@@ -420,6 +442,7 @@
         },
         {
           key: "adminUren", label: "Hoeveel uur per week gaat naar administratie die ook geautomatiseerd zou kunnen worden? (getal)",
+          numeric: { min: 0 },
           status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n <= 2) return "green"; if (n <= 6) return "amber"; return "red"; },
           improve: "Automatiseer herhaalde administratieve taken (herinneringen, facturatie, intake) — dit is precies waar een AI-assistent tijd vrijmaakt.",
         },
@@ -449,6 +472,7 @@
         {
           key: "teamTevredenheid", label: "Hoe tevreden is het team gemiddeld? (schaal 1-5)",
           quick: ["5", "4", "3", "2", "1"],
+          numeric: { min: 1, max: 5 },
           status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n >= 4) return "green"; if (n === 3) return "amber"; return "red"; },
           improve: "Zet een korte, terugkerende teampuls-survey op om vroeg signalen van dalende tevredenheid op te vangen.",
         },
@@ -573,6 +597,7 @@
       {
         key: "maxCapaciteit", perspKey: "setup", perspLabel: "Basisgegevens", isSetup: true,
         label: "Om te beginnen: hoeveel patiënten/cliënten kan je praktijk maximaal per week zien? (getal, bv. 60 — dit is je 100%-basis, de volgende vragen rekenen we automatisch om naar percentages)",
+        numeric: { min: 1 },
       },
     ];
     BSC.forEach((persp) => persp.questions.forEach((q) => flatQuestions.push({ perspKey: persp.key, perspLabel: persp.label, ...q })));
@@ -637,25 +662,91 @@
     setQuickReplies(q.quick);
   }
 
+  // Masterplan §2 (P0): "Tekst en negatieve aantallen worden aanvaard" — vóór deze fix accepteerde
+  // elk numeriek veld letterlijk om het even welke tekst; status()-functies vielen dan stilzwijgend
+  // terug op "amber" (parseFloat(tekst) => NaN) of rekenden gewoon door met een negatief getal.
+  // validateAnswer() is de ene, centrale invoerpoort: numerieke vragen (q.numeric) worden geparsed
+  // en tegen min/max gecontroleerd; vragen met vaste keuzeopties (q.quick) moeten letterlijk (of als
+  // ondubbelzinnig voorvoegsel van) één van die opties overeenkomen. Alleen bij een geldig antwoord
+  // gaat de flow verder — anders blijft dezelfde vraag actief en toont de bot waarom het antwoord
+  // niet werd aanvaard, zodat de gebruiker meteen kan corrigeren.
+  function validateAnswer(q, text) {
+    if (q.numeric) {
+      const normalized = text.replace(",", ".").replace(/\s+/g, "");
+      const n = parseFloat(normalized);
+      if (!/^-?\d+(\.\d+)?$/.test(normalized) || isNaN(n)) {
+        return { ok: false, error: "Dat is geen geldig getal. Voer enkel een getal in (bv. 8), geen tekst.", };
+      }
+      if (typeof q.numeric.min === "number" && n < q.numeric.min) {
+        return { ok: false, error: "Voer een getal in van minstens " + q.numeric.min + " (negatieve aantallen zijn niet mogelijk)." };
+      }
+      if (typeof q.numeric.max === "number" && n > q.numeric.max) {
+        return { ok: false, error: "Voer een getal in van maximaal " + q.numeric.max + "." };
+      }
+      return { ok: true, value: String(n) };
+    }
+    if (q.quick && q.quick.length) {
+      const norm = text.trim().toLowerCase();
+      const match = q.quick.find((opt) => opt.toLowerCase() === norm || opt.toLowerCase().startsWith(norm) || norm.startsWith(opt.toLowerCase()));
+      if (!match) {
+        return { ok: false, error: "Kies één van de volgende opties (typ 'm of klik op de knop): " + q.quick.join(" / ") };
+      }
+      return { ok: true, value: match };
+    }
+    return { ok: true, value: text };
+  }
+
   async function handleAnswer(rawText) {
     const text = (rawText || "").trim();
     if (!text) return;
     addMessage(text, "user");
-    setQuickReplies([]);
     inputEl.value = "";
     if (micHint) micHint.style.display = "none";
 
     const q = flatQuestions[qIndex];
-    answers[q.key] = text;
+    const result = validateAnswer(q, text);
+    if (!result.ok) {
+      await botSay(result.error, 150);
+      setQuickReplies(q.quick);
+      return;
+    }
+    setQuickReplies([]);
+    answers[q.key] = result.value;
     qIndex++;
     await askNext();
+  }
+
+  // Masterplan §2 (P0-2, taak #282): "Eén centrale score-label-kleurfunctie" — vóór deze fix had de
+  // ringgrafiek (zie ringTierColor hieronder) een EIGEN 4-tier-indeling (Sterk/Goed/Aandacht/
+  // Kritiek, grenzen 80/70/50) naast deze 3-tier-indeling (Gezond/Aandachtspunt/Kritiek, grenzen
+  // 80/50) die overal elders gebruikt werd — badges, snelle-winsten, en de backend-PDF (STATUS_LABEL/
+  // _status_for in main.py). Daardoor kon dezelfde score twee verschillende labels krijgen (bv. "68 =
+  // Kritiek" in het ene onderdeel, "70 = Aandacht" in het andere) — exact de "vertrouwensbreuk" uit
+  // het masterplan. SCORE_STATUS is nu de ENE bron van waarheid voor kleur + label: scoreColor(),
+  // badgeLabel(), de ringgrafiek en haar legende lezen allemaal hieruit. Grenzen/kleuren/labels komen
+  // 1-op-1 overeen met STATUS_LABEL/_status_for in main.py — wijzig ze altijd samen.
+  const SCORE_STATUS = {
+    green: { label: "Gezond", fill: "#234f42" },
+    amber: { label: "Aandachtspunt", fill: "#c98a2c" },
+    red: { label: "Kritiek", fill: "#c0392b" },
+  };
+  // Masterplan §2 (P0-3, taak #283): leest q.improve op de juiste status uit — ondersteunt zowel de
+  // (meest voorkomende) vlakke string als een {amber, rood}-object voor vragen zoals omzetTrend waar
+  // het advies effectief per antwoordcode verschilt. Zelfde fallback-volgorde als main.py's
+  // QUESTION_LIBRARY-lezer (_weak_subpoints): eerst de opgevraagde status, dan de andere, nooit leeg.
+  function improveText(q, status) {
+    if (q.improve && typeof q.improve === "object") {
+      const key = status === "red" ? "rood" : "amber";
+      return q.improve[key] || q.improve.amber || q.improve.rood || "";
+    }
+    return q.improve || "";
   }
 
   function badgeClass(status) {
     return status === "green" ? "green" : status === "amber" ? "amber" : "red";
   }
   function badgeLabel(status) {
-    return status === "green" ? "Gezond" : status === "amber" ? "Aandachtspunt" : "Kritiek";
+    return (SCORE_STATUS[status] || SCORE_STATUS.red).label;
   }
 
   // Numerieke score per perspectief (0-100), zelfde model als in het Word-rapport,
@@ -706,11 +797,13 @@
     return shortened.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  // Was ooit een eigen 4-tier-schaal (Sterk/Goed/Aandacht/Kritiek) — nu enkel nog een dunne wrapper
+  // rond de centrale SCORE_STATUS-tabel (zie taak #282-toelichting hierboven), zodat de ringgrafiek
+  // en haar legende altijd exact hetzelfde label/kleur tonen als elke andere score-badge in de app.
   function ringTierColor(score) {
-    if (score >= 80) return { fill: "#234f42", name: "Sterk" };
-    if (score >= 70) return { fill: "#2e8b57", name: "Goed" };
-    if (score >= 50) return { fill: "#c98a2c", name: "Aandacht" };
-    return { fill: "#c0392b", name: "Kritiek" };
+    const status = scoreColor(score);
+    const meta = SCORE_STATUS[status];
+    return { fill: meta.fill, name: meta.label };
   }
 
   function ringPolar(cx, cy, r, angleDeg) {
@@ -804,10 +897,9 @@
     inner += `<text x="${cx}" y="${cy + 15}" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="9.5" font-weight="700" letter-spacing="0.08em" fill="#8a7f6f">/100 SCORE</text>`;
 
     const legendItems = [
-      ["#234f42", "Sterk (≥80)"],
-      ["#2e8b57", "Goed (70-79)"],
-      ["#c98a2c", "Aandacht (50-69)"],
-      ["#c0392b", "Kritiek (<50)"],
+      [SCORE_STATUS.green.fill, SCORE_STATUS.green.label + " (≥80)"],
+      [SCORE_STATUS.amber.fill, SCORE_STATUS.amber.label + " (50-79)"],
+      [SCORE_STATUS.red.fill, SCORE_STATUS.red.label + " (<50)"],
     ];
     const legend = '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:6px;font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:11px;color:#556;">' +
       legendItems.map(([color, label]) => `<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin-right:4px;vertical-align:-1px;"></span>${label}</span>`).join("") +
@@ -958,7 +1050,7 @@
           const calc = q.display ? q.display(answers[q.key], answers) : "";
           improveHtml +=
             '<div class="improve-item"><div class="dot ' + badgeClass(st) + '"></div>' +
-            '<div><strong>' + escapeHtml(displayPerspLabel(persp.label)) + ':</strong> ' + escapeHtml(q.improve) +
+            '<div><strong>' + escapeHtml(displayPerspLabel(persp.label)) + ':</strong> ' + escapeHtml(improveText(q, st)) +
             (calc ? '<span class="calc-note">' + escapeHtml(calc) + '</span>' : '') + '</div></div>';
           // Alleen het onderwerp (geen oplossingstekst) voor de "Snelle win-kansen"-tegel in het dashboard.
           quickWins.push({ title: TOPIC_LABELS[q.key] || displayPerspLabel(persp.label), impact: st });
@@ -1134,6 +1226,53 @@
     });
   }
 
+  // Masterplan §4 (P0-4, taak #284): "AI-Q&A blijft hangen zonder status of herstel". Vóór deze fix
+  // had fetch(BACKEND_URL + "/api/qa") geen timeout: bij een trage Render-cold-start (het gratis
+  // tier slaapt na inactiviteit en heeft soms 30-50s nodig om op te starten) of een provider-storing
+  // bleef de knop simpelweg uitgeschakeld zonder enige boodschap — de gebruiker had geen idee of er
+  // nog iets gebeurde of dat het al mislukt was. callQaEndpoint() is nu de ENE gedeelde aanroep-kern
+  // voor zowel het in-scan-paneel (setupAiQaPanel hieronder) als de terugkeer-popup
+  // (sendQaPopupMessage): een AbortController dwingt een harde timeout af (met een boodschap die
+  // expliciet een cold start noemt, i.p.v. een generieke foutmelding), en de aanroepers hieronder
+  // tonen altijd een "typt..."-indicator tijdens het wachten plus een "Opnieuw proberen"-knop bij een
+  // fout, die de laatst gestuurde vraag herstuurt zonder dat de gebruiker moet hertypen.
+  const QA_TIMEOUT_MS = 45000;
+  async function callQaEndpoint(payload) {
+    if (typeof AbortController === "undefined") {
+      // Zeer oude browser zonder AbortController: geen timeout mogelijk, maar minstens geen crash.
+      try {
+        const res = await fetch(BACKEND_URL + "/api/qa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!res.ok) return { ok: false, error: "Serverfout (" + res.status + ")." };
+        return { ok: true, data: await res.json() };
+      } catch (err) {
+        return { ok: false, error: err.message || "Onbekende netwerkfout." };
+      }
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), QA_TIMEOUT_MS);
+    try {
+      const res = await fetch(BACKEND_URL + "/api/qa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        let detail = "";
+        try { const errBody = await res.json(); detail = errBody && errBody.detail ? errBody.detail : ""; } catch (e) { /* geen JSON-body, negeren */ }
+        return { ok: false, error: "Serverfout (" + res.status + ")" + (detail ? ": " + detail : "") + "." };
+      }
+      return { ok: true, data: await res.json() };
+    } catch (err) {
+      if (err.name === "AbortError") {
+        return { ok: false, error: "De AI-assistent reageert niet binnen " + Math.round(QA_TIMEOUT_MS / 1000) + " seconden — mogelijk een koude start van de server na inactiviteit." };
+      }
+      return { ok: false, error: err.message || "Onbekende netwerkfout." };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // AI-Q&A-paneel: stuurt vragen naar POST /api/qa met sectorcontext + BSC-scores.
   // Zonder BACKEND_URL toont dit paneel een nette "binnenkort beschikbaar"-melding i.p.v. te
   // doen alsof het al werkt.
@@ -1162,40 +1301,61 @@
       div.textContent = text;
       msgsEl.appendChild(div);
       msgsEl.scrollTop = msgsEl.scrollHeight;
+      return div;
+    }
+    function addAiTyping() {
+      const div = document.createElement("div");
+      div.className = "ai-msg bot ai-typing";
+      div.textContent = "Bezig met typen…";
+      msgsEl.appendChild(div);
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+      return div;
+    }
+    function addAiRetry(message, onRetry) {
+      const div = document.createElement("div");
+      div.className = "ai-msg bot ai-error";
+      div.appendChild(document.createTextNode(message + " "));
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ai-retry-btn";
+      btn.textContent = "Opnieuw proberen";
+      btn.addEventListener("click", () => { div.remove(); onRetry(); });
+      div.appendChild(btn);
+      msgsEl.appendChild(div);
+      msgsEl.scrollTop = msgsEl.scrollHeight;
     }
 
-    async function sendAiQa() {
-      const text = inputEl2.value.trim();
+    async function sendAiQa(retryText) {
+      const isRetry = retryText !== undefined;
+      const text = isRetry ? retryText : inputEl2.value.trim();
       if (!text) return;
-      addAiMsg(text, "user");
-      aiQaHistory.push({ role: "user", content: text });
-      inputEl2.value = "";
-      sendBtn2.disabled = true;
-
-      try {
-        const res = await fetch(BACKEND_URL + "/api/qa", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sector: SECTORS[currentSector].name,
-            scan_scores: scoresObj,
-            scan_answers: answeredQaList(),
-            history: aiQaHistory.slice(0, -1),
-            message: text,
-          }),
-        });
-        if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
-        const data = await res.json();
-        addAiMsg(data.reply, "bot");
-        aiQaHistory.push({ role: "assistant", content: data.reply });
-      } catch (err) {
-        addAiMsg("Er ging iets mis bij het ophalen van een antwoord (" + err.message + "). Probeer het later opnieuw.", "bot");
-      } finally {
-        sendBtn2.disabled = false;
+      if (!isRetry) {
+        addAiMsg(text, "user");
+        aiQaHistory.push({ role: "user", content: text });
+        inputEl2.value = "";
       }
+      sendBtn2.disabled = true;
+      const typingEl = addAiTyping();
+
+      const result = await callQaEndpoint({
+        sector: SECTORS[currentSector].name,
+        scan_scores: scoresObj,
+        scan_answers: answeredQaList(),
+        history: aiQaHistory.slice(0, -1),
+        message: text,
+      });
+
+      typingEl.remove();
+      if (result.ok) {
+        addAiMsg(result.data.reply, "bot");
+        aiQaHistory.push({ role: "assistant", content: result.data.reply });
+      } else {
+        addAiRetry(result.error, () => sendAiQa(text));
+      }
+      sendBtn2.disabled = false;
     }
 
-    sendBtn2.addEventListener("click", sendAiQa);
+    sendBtn2.addEventListener("click", () => sendAiQa());
     inputEl2.addEventListener("keydown", (e) => { if (e.key === "Enter") sendAiQa(); });
   }
 
@@ -1852,10 +2012,36 @@
 
   function addQaPopupMsg(text, cls) {
     const canvas = document.getElementById("qaPopupCanvas");
-    if (!canvas) return;
+    if (!canvas) return null;
     const div = document.createElement("div");
     div.className = "qa-popup-msg " + cls;
     div.textContent = text;
+    canvas.appendChild(div);
+    canvas.scrollTop = canvas.scrollHeight;
+    return div;
+  }
+  function addQaPopupTyping() {
+    const canvas = document.getElementById("qaPopupCanvas");
+    if (!canvas) return null;
+    const div = document.createElement("div");
+    div.className = "qa-popup-msg bot qa-popup-typing";
+    div.textContent = "Bezig met typen…";
+    canvas.appendChild(div);
+    canvas.scrollTop = canvas.scrollHeight;
+    return div;
+  }
+  function addQaPopupRetry(message, onRetry) {
+    const canvas = document.getElementById("qaPopupCanvas");
+    if (!canvas) return;
+    const div = document.createElement("div");
+    div.className = "qa-popup-msg bot qa-popup-error";
+    div.appendChild(document.createTextNode(message + " "));
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ai-retry-btn";
+    btn.textContent = "Opnieuw proberen";
+    btn.addEventListener("click", () => { div.remove(); onRetry(); });
+    div.appendChild(btn);
     canvas.appendChild(div);
     canvas.scrollTop = canvas.scrollHeight;
   }
@@ -1894,41 +2080,42 @@
   // terugkerend bezoek via de magic link: stuurt enkel het token mee (geen scores/antwoorden vanuit
   // deze pagina-sessie, die bestaan hier niet) — de backend haalt de opgeslagen scan-context zelf op
   // aan de hand van het token (zie /api/qa-access in main.py).
-  async function sendQaPopupMessage(token) {
+  async function sendQaPopupMessage(token, retryText) {
     const inputEl = document.getElementById("qaPopupInput");
     const sendBtn = document.getElementById("qaPopupSendBtn");
     if (!inputEl || !sendBtn) return;
-    const text = inputEl.value.trim();
+    const isRetry = retryText !== undefined;
+    const text = isRetry ? retryText : inputEl.value.trim();
     if (!text) return;
-    addQaPopupMsg(text, "user");
-    aiQaReturnHistory.push({ role: "user", content: text });
-    inputEl.value = "";
+    if (!isRetry) {
+      addQaPopupMsg(text, "user");
+      aiQaReturnHistory.push({ role: "user", content: text });
+      inputEl.value = "";
+    }
     sendBtn.disabled = true;
+    const typingEl = addQaPopupTyping();
 
-    try {
-      const res = await fetch(BACKEND_URL + "/api/qa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sector: "",
-          history: aiQaReturnHistory.slice(0, -1),
-          message: text,
-          token: token,
-        }),
-      });
-      if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
-      const data = await res.json();
+    const result = await callQaEndpoint({
+      sector: "",
+      history: aiQaReturnHistory.slice(0, -1),
+      message: text,
+      token: token,
+    });
+
+    if (typingEl) typingEl.remove();
+    if (result.ok) {
+      const data = result.data;
       addQaPopupMsg(data.reply, "bot");
       aiQaReturnHistory.push({ role: "assistant", content: data.reply });
       if (data.expired) {
         inputEl.disabled = true;
         sendBtn.disabled = true;
+        return;
       }
-    } catch (err) {
-      addQaPopupMsg("Er ging iets mis bij het ophalen van een antwoord (" + err.message + "). Probeer het later opnieuw.", "bot");
-    } finally {
-      if (!inputEl.disabled) sendBtn.disabled = false;
+    } else {
+      addQaPopupRetry(result.error, () => sendQaPopupMessage(token, text));
     }
+    if (!inputEl.disabled) sendBtn.disabled = false;
   }
 
   function escapeHtml(str) {
