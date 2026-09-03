@@ -285,7 +285,7 @@
     <div class="header">
       <button id="voiceToggle" class="voice-toggle" type="button" title="Bot spreekt vragen uit — klik om te dempen" aria-label="Spraakweergave aan/uit">🔊</button>
       <h1>Zenpertise Quick Scan</h1>
-      <p id="headerSub">Kies je praktijktype om te starten — 16 vragen, 4 minuten.</p>
+      <p id="headerSub">Kies je praktijktype om te starten — 22 vragen, 5-6 minuten.</p>
     </div>
     <div id="sectorPicker" class="sector-picker"></div>
     <div id="chatArea" style="display:none;">
@@ -324,7 +324,9 @@
   // door intake_flow.html en generate_intake_docs.js). Hier is enkel name/icon nodig.
   const SECTORS = ZenpertiseSectors.SECTORS;
 
-  // Balanced Scorecard — 4 perspectieven, 3 vragen elk.
+  // Balanced Scorecard — 5 perspectieven. Elk perspectief heeft de oorspronkelijke operationele
+  // vragen plus (sinds de boek-verdieping) 1 strategische verdiepingsvraag, dus 4 vragen elk
+  // behalve Klant (5, was al 4 operationele vragen vóór de verdieping).
   // status(value) geeft "green" | "amber" | "red" terug; improve-teksten worden
   // getoond bij amber/red.
   const BSC = [
@@ -380,6 +382,15 @@
             rood: "Breng in kaart welke behandelingen/diensten het meest bijdragen aan de omzetdaling en zet een gericht retentie- en instroomplan op om de daling te stoppen.",
           },
         },
+        {
+          // Strategische verdiepingsvraag (naast de 3 operationele vragen hierboven) — geïnspireerd
+          // op Addendum X "A Business Model Diagnostic" uit "From Black Belt to Boardroom":
+          // recurring revenue als indicator van hoe fragiel/robuust een omzetmodel is.
+          key: "terugkerendeOmzet", label: "Welk aandeel van je omzet komt van terugkerende patiënten/cliënten (mensen die al eerder bij je waren), niet van eenmalige nieuwe klanten?",
+          quick: ["Hoog — het merendeel is terugkerend", "Gemiddeld — een mix van beide", "Laag — vooral eenmalige of nieuwe klanten"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("hoog")) return "green"; if (s.startsWith("gemiddeld")) return "amber"; return "red"; },
+          improve: "Breng in kaart wat terugkerende patiënten/cliënten drijft (vervolgtrajecten, controlemomenten) en bouw dat bewust uit — dat maakt je omzet minder afhankelijk van voortdurende nieuwe instroom.",
+        },
       ],
     },
     {
@@ -425,9 +436,17 @@
         },
         {
           key: "tevredenheid", label: "Hoe vaak meet je patiënttevredenheid?",
-          quick: ["Structureel (elke patiënt)", "Af en toe", "Nooit"],
+          quick: ["Structureel — na (bijna) elke afspraak, via een vaste vraag of tool", "Af en toe — soms een informele vraag, geen vast systeem", "Nooit — ik vraag er niet actief naar"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("structureel")) return "green"; if (s.startsWith("af en toe")) return "amber"; return "red"; },
           improve: "Voer een structurele, korte feedbackvraag in na elke afspraak (bv. 1 vraag per sms/mail) zodat je trends vroeg opmerkt.",
+        },
+        {
+          // Strategische verdiepingsvraag — Addendum X "A Business Model Diagnostic" (competitive
+          // moat/entry barriers): kan de praktijkhouder in één zin uitleggen waarom een klant kiest?
+          key: "onderscheid", label: "Heb je een duidelijk, uit te leggen antwoord op waarom een patiënt/cliënt voor jouw praktijk kiest in plaats van een gelijkaardige praktijk in de buurt?",
+          quick: ["Ja, ik kan dat in één zin uitleggen", "Ten dele — het is niet helemaal scherp", "Nee, ik heb daar geen duidelijk antwoord op"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja")) return "green"; if (s.startsWith("ten dele")) return "amber"; return "red"; },
+          improve: "Formuleer in één zin waarom patiënten/cliënten voor jou kiezen (specialisatie, aanpak, bereikbaarheid) en gebruik die zin consequent in je communicatie — een onscherp antwoord is moeilijk te verdedigen tegen concurrentie.",
         },
       ],
     },
@@ -436,7 +455,7 @@
       questions: [
         {
           key: "digitalisering", label: "Hoe verloopt je dossierbeheer/planning?",
-          quick: ["Volledig digitaal", "Deels digitaal, deels papier", "Grotendeels papier"],
+          quick: ["Volledig digitaal — dossier én planning, geen papier meer nodig", "Deels digitaal, deels papier — een mix, nog geen vast systeem voor alles", "Grotendeels papier — het meeste loopt nog manueel/op papier"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("volledig")) return "green"; if (s.startsWith("deels")) return "amber"; return "red"; },
           improve: "Digitaliseer resterende papieren processen (planning/dossiers) — dat is de basis voor elke verdere automatisering.",
         },
@@ -448,9 +467,17 @@
         },
         {
           key: "gemisteOproepFlow", label: "Is er een vast proces voor wat te doen bij een gemiste oproep of last-minute annulering?",
-          quick: ["Ja, vast proces", "Ad hoc", "Nee"],
+          quick: ["Ja, vast proces — iedereen weet exact wie terugbelt en binnen welke tijd", "Ad hoc — het gebeurt wel, maar zonder vaste afspraak wie/wanneer", "Nee — er is geen enkel opvangproces"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja")) return "green"; if (s.startsWith("ad hoc")) return "amber"; return "red"; },
           improve: "Zet een vast opvangproces op voor gemiste oproepen (bv. de intake-widget die we al bouwden) zodat geen enkel verzoek verloren gaat.",
+        },
+        {
+          // Strategische verdiepingsvraag — Addendum X "A Business Model Diagnostic" (scalability
+          // at 3x scale), hier verlaagd naar "verdubbelen" voor praktische relevantie op praktijkschaal.
+          key: "schaalbaarheid", label: "Als het aantal patiënten/cliënten morgen zou verdubbelen, zou je huidige manier van werken (planning, dossiers, administratie) dat aankunnen zonder chaos?",
+          quick: ["Ja, moeiteloos — het systeem is er klaar voor", "Met moeite — het zou al snel kraken", "Nee, het zou volledig vastlopen"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja")) return "green"; if (s.startsWith("met moeite")) return "amber"; return "red"; },
+          improve: "Identificeer welke stap het eerst zou vastlopen bij groei (planning, dossiers, facturatie) en pak die als eerste structureel aan — liever nu dan onder de druk van een volle agenda.",
         },
       ],
     },
@@ -459,13 +486,13 @@
       questions: [
         {
           key: "bijscholing", label: "Hoe vaak krijgt het team bijscholing of training?",
-          quick: ["Regelmatig (min. 1x/jaar gepland)", "Soms", "Zelden of nooit"],
+          quick: ["Regelmatig — minstens 1x per jaar gepland, voor het hele team", "Soms — het gebeurt, maar niet gepland of niet voor iedereen", "Zelden of nooit — er is geen bijscholingsritme"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("regelmatig")) return "green"; if (s.startsWith("soms")) return "amber"; return "red"; },
           improve: "Plan structurele bijscholingsmomenten in (bv. jaarlijks per teamlid) — dit voorkomt kennisveroudering en verhoogt retentie van personeel.",
         },
         {
           key: "verloop", label: "Hoe zou je het personeelsverloop van het afgelopen jaar omschrijven?",
-          quick: ["Stabiel team", "Enkele wissels", "Veel verloop"],
+          quick: ["Stabiel team — (bijna) niemand vertrok het afgelopen jaar", "Enkele wissels — 1 à 2 vertrekken, verklaarbaar", "Veel verloop — meerdere vertrekken met een duidelijk patroon"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("stabiel")) return "green"; if (s.startsWith("enkele")) return "amber"; return "red"; },
           improve: "Onderzoek de oorzaak van het verloop via korte exitgesprekken en een teampuls-bevraging.",
         },
@@ -475,6 +502,15 @@
           numeric: { min: 1, max: 5 },
           status: (v) => { const n = parseFloat(v); if (isNaN(n)) return "amber"; if (n >= 4) return "green"; if (n === 3) return "amber"; return "red"; },
           improve: "Zet een korte, terugkerende teampuls-survey op om vroeg signalen van dalende tevredenheid op te vangen.",
+        },
+        {
+          // Strategische verdiepingsvraag — Addendum X "A Business Model Diagnostic" (is dit een
+          // bedrijf of een baan?) + Addendum VI "Coaching, Mentoring, and Transmission": hoeveel
+          // hangt er nog rechtstreeks van de praktijkhouder zelf af?
+          key: "onafhankelijkheid", label: "Kan de praktijk minstens één week goed blijven draaien als jij er zelf niet bent (ziekte, vakantie), zonder dat patiënten/cliënten dat sterk merken?",
+          quick: ["Ja, het team kan dat zelfstandig aan", "Deels — sommige dingen lopen dan mis", "Nee, alles hangt af van mijn aanwezigheid"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja")) return "green"; if (s.startsWith("deels")) return "amber"; return "red"; },
+          improve: "Breng in kaart welke beslissingen/taken enkel bij jou liggen, en draag er bewust één per maand over aan een teamlid — zo bouw je geleidelijk minder afhankelijkheid van je eigen aanwezigheid op.",
         },
       ],
     },
@@ -488,21 +524,30 @@
       questions: [
         {
           key: "foutmanagement", label: "Hoe ga je meestal om met een fout of tegenslag in de praktijk (bv. een verkeerde inschatting, een moeilijk gesprek, een conflict)?",
-          quick: ["Ik analyseer wat er misging en stuur snel bij", "Het houdt me een tijd bezig voor ik verderga", "Ik vermijd het liever of blijf erin hangen"],
+          quick: ["Ik analyseer wat er misging, trek er een les uit en stuur binnen 1-2 dagen bij", "Het houdt me een tijd bezig — meestal duurt het dagen voor ik het echt loslaat", "Ik vermijd het liever, of ik blijf er weken over piekeren"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ik analyseer")) return "green"; if (s.startsWith("het houdt")) return "amber"; return "red"; },
           improve: "Bouw een vast 'terugblik-ritueel' in na een tegenslag: wat gebeurde er, wat leer je eruit, wat pas je aan — zonder erin te blijven hangen.",
         },
         {
           key: "herstel", label: "Neem je structureel rust of hersteltijd, los van vakantie (bv. een vaste vrije avond, geen mails na sluitingstijd)?",
-          quick: ["Ja, structureel ingebouwd", "Soms, als het uitkomt", "Zelden tot nooit"],
+          quick: ["Ja, structureel ingebouwd — een vast, wekelijks moment dat ik zelden oversla", "Soms, als het uitkomt — geen vast moment, het hangt af van de drukte", "Zelden tot nooit — hersteltijd is meestal het eerste dat sneuvelt"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja, structureel")) return "green"; if (s.startsWith("soms")) return "amber"; return "red"; },
           improve: "Plan bewust hersteltijd in je agenda, net als een afspraak met een patiënt — anders is het altijd het eerste dat sneuvelt.",
         },
         {
           key: "aanwezigheid", label: "Wanneer het druk of gespannen wordt in de praktijk, merkt je team of merken patiënten dat aan jou?",
-          quick: ["Meestal niet — ik blijf zichtbaar kalm", "Soms, afhankelijk van de dag", "Ja, mijn stress is vaak voelbaar voor anderen"],
+          quick: ["Meestal niet — ik blijf zichtbaar kalm, ook op drukke momenten", "Soms, afhankelijk van de dag — wisselend hoe zichtbaar het is", "Ja, mijn stress is vaak voelbaar — team of patiënten merken het regelmatig"],
           status: (v) => { const s = v.toLowerCase(); if (s.startsWith("meestal niet")) return "green"; if (s.startsWith("soms")) return "amber"; return "red"; },
           improve: "Oefen een kort 'reset-moment' voor je een spreekkamer of vergadering binnengaat (bv. drie bewuste ademhalingen) — een kleine gewoonte met grote invloed op hoe je overkomt.",
+        },
+        {
+          // Strategische verdiepingsvraag — Addendum II "Prioritization Techniques as Decision
+          // Filters" (Pareto 80/20, Eisenhower, Eat the Frog): scherpte in wat écht prioriteit
+          // verdient, i.p.v. reactief van taak naar taak werken.
+          key: "prioriteitsscherpte", label: "Kan je op elk moment duidelijk aangeven welke 2-3 taken deze week het meeste impact hebben, en werk je die ook effectief het eerst af?",
+          quick: ["Ja, dat is voor mij duidelijk en ik doe dat ook", "Ik weet het wel, maar kom er vaak niet aan toe", "Nee, ik werk vooral reactief, van taak naar taak"],
+          status: (v) => { const s = v.toLowerCase(); if (s.startsWith("ja")) return "green"; if (s.startsWith("ik weet het wel")) return "amber"; return "red"; },
+          improve: "Kies elke maandagochtend bewust de 2-3 taken met de meeste impact deze week (de rest is per definitie minder dringend) en plan ze als eerste in je agenda in.",
         },
       ],
     },
@@ -607,7 +652,7 @@
     chatArea.style.display = "block";
     messagesEl.innerHTML = "";
     headerSub.textContent = SECTORS[key].name + " — quick scan loopt";
-    botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. Eerst één basisvraag over je praktijkcapaciteit, daarna 15 korte vragen verdeeld over 5 aandachtsgebieden — naast de operationele cijfers ook je eigen leiderschap en veerkracht als praktijkhouder. Percentages berekenen we automatisch voor je op basis van de aantallen die je invult.");
+    botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. Eerst één basisvraag over je praktijkcapaciteit, daarna 21 korte vragen verdeeld over 5 aandachtsgebieden — naast de operationele cijfers ook enkele strategische vragen over je businessmodel, en je eigen leiderschap en veerkracht als praktijkhouder. Percentages berekenen we automatisch voor je op basis van de aantallen die je invult.");
     setTimeout(askNext, 400);
   }
 
@@ -1710,7 +1755,7 @@
     if (ttsSupported) window.speechSynthesis.cancel();
     reportArea.style.display = "none";
     sectorPicker.style.display = "flex";
-    headerSub.textContent = "Kies je praktijktype om te starten — 16 vragen, 4 minuten.";
+    headerSub.textContent = "Kies je praktijktype om te starten — 22 vragen, 5-6 minuten.";
   }
 
   // Toont na een redirect terug van de Mollie-checkout (redirectUrl bevat ?paid=1) een
