@@ -1467,6 +1467,39 @@
             '</div>' +
           '</div>' +
         '</div>' +
+        '<div class="practice-continuity" style="margin-bottom:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#f8faf9;">' +
+          '<div style="font-weight:700;font-size:12.5px;margin-bottom:2px;">Praktijkcontinuïteit (nieuw, 6 korte vragen, optioneel)</div>' +
+          '<div style="font-size:11px;color:#889;margin-bottom:8px;">Naast de Balanced Scorecard hierboven — telefonie, IT, apparatuur, voorraad, lokalen/linnen, bezetting, mutualiteitsclaims en wanbetaling. Nog een pilotmodule; laat gerust leeg.</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+            '<select id="pcOp01" title="PSC.OP.01" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;">' +
+              '<option value="">Verstoord door IT/telefoon/materiaal/lokalen/leverancier (30d)?</option>' +
+              '<option value="nooit">Nooit</option><option value="1-2">1-2 keer</option><option value="3-5">3-5 keer</option><option value=">5">Meer dan 5</option><option value="onbekend">Weet ik niet</option>' +
+            '</select>' +
+            '<select id="pcOp03" title="PSC.OP.03" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;">' +
+              '<option value="">Verloren werkuren/afspraken (30d)?</option>' +
+              '<option value="0">Geen</option><option value="<2u">Minder dan 2u</option><option value="2-8u">2-8u</option><option value=">8u">Meer dan 8u</option><option value="onbekend">Weet ik niet</option>' +
+            '</select>' +
+            '<select id="pcOp04" title="PSC.OP.04" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;">' +
+              '<option value="">Worden storingen/taken centraal opgevolgd?</option>' +
+              '<option value="structureel">Ja, structureel</option><option value="gedeeltelijk">Gedeeltelijk</option><option value="ad_hoc">Ad hoc</option><option value="niet">Niet</option>' +
+            '</select>' +
+            '<select id="pcPeo01" title="PSC.PEO.01" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;">' +
+              '<option value="">Onverwachte afwezigheid sleutelfiguur 1 week opvangbaar?</option>' +
+              '<option value="ja">Ja</option><option value="deels">Deels</option><option value="nee">Nee</option><option value="onbekend">Weet ik niet</option>' +
+            '</select>' +
+            '<select id="pcFin01" title="PSC.FIN.01" style="grid-column:1/-1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;">' +
+              '<option value="">Bedrag/prestaties wachtend op betaling, correctie of herindiening?</option>' +
+              '<option value="geen">Geen</option><option value="beperkt">Beperkt</option><option value="materieel">Materieel</option><option value="onbekend">Weet ik niet</option>' +
+            '</select>' +
+          '</div>' +
+          '<div style="font-size:11.5px;color:#667;margin-bottom:4px;">Welke verstoring kost nu de meeste tijd/mentale ruimte? (max. 2)</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+            ['telefonie','it','apparatuur','voorraad','lokalen_linnen','hr_bezetting','claims_mutualiteiten','wanbetaling','taken_overdracht','leveranciers'].map(function(cat) {
+              var pcLabels = {telefonie:'Telefonie', it:'IT', apparatuur:'Apparatuur', voorraad:'Voorraad', lokalen_linnen:'Lokalen/linnen', hr_bezetting:'HR/bezetting', claims_mutualiteiten:'Claims/mutualiteiten', wanbetaling:'Wanbetaling', taken_overdracht:'Taken/overdracht', leveranciers:'Leveranciers'};
+              return '<label style="display:flex;align-items:center;gap:3px;font-size:11.5px;background:white;border:1px solid var(--border);border-radius:6px;padding:3px 7px;"><input type="checkbox" class="pcOp02" value="' + cat + '"> ' + pcLabels[cat] + '</label>';
+            }).join('') +
+          '</div>' +
+        '</div>' +
         '<div class="qa-addon-picker">' +
           '<div class="qa-addon-title">AI-Q&A-toegang na vandaag (optioneel)</div>' +
           '<label><input type="radio" name="qaAddon" value="" checked> Geen — enkel het rapport</label>' +
@@ -1507,6 +1540,15 @@
     confirmEl.querySelectorAll('input[name="ppConventiestatus"]').forEach((radio) => {
       radio.addEventListener("change", () => {
         ppEigenTariefWrap.style.display = (radio.value === "niet-toegetreden" || radio.value === "gemengd") ? "block" : "none";
+      });
+    });
+
+    // PSC.OP.02 laat max. 2 categorieën toe (blauwdruk §3.1: "Selecteer maximaal 2 categorieën").
+    const pcOp02Boxes = confirmEl.querySelectorAll(".pcOp02");
+    pcOp02Boxes.forEach((box) => {
+      box.addEventListener("change", () => {
+        const checked = Array.from(pcOp02Boxes).filter((b) => b.checked);
+        if (checked.length > 2) box.checked = false;
       });
     });
 
@@ -1615,6 +1657,23 @@
       meetperiode_weken: toNumOrNull(ppMeetperiodeWekenEl),
       beschikbare_behandelslots_week: toNumOrNull(ppBeschikbareSlotsEl),
     };
+
+    // Praktijkcontinuïteit (Fase 0/1, kine-pilot minimumset — zie PraktijkcontinuiteitSignals in
+    // main.py) — bewust volledig los van de 5 BSC-perspectieven hierboven, elk veld leeg = null
+    // (niet "onbekend"), zodat de backend het onderscheid "niet ingevuld" vs. "onbekend
+    // geantwoord" correct kan maken (§3.2 activatieregels).
+    const pcValueOrNull = (id) => { const el = document.getElementById(id); return (el && el.value) ? el.value : null; };
+    const pcGrootsteLast = Array.from(document.querySelectorAll(".pcOp02:checked")).map((el) => el.value);
+    const praktijkcontinuiteit = {
+      psc_op_01_verstoringen: pcValueOrNull("pcOp01"),
+      psc_op_02_grootste_last: pcGrootsteLast.length ? pcGrootsteLast : null,
+      psc_op_03_verloren_werkuren: pcValueOrNull("pcOp03"),
+      psc_op_04_opvolging: pcValueOrNull("pcOp04"),
+      psc_peo_01_afwezigheid_opvang: pcValueOrNull("pcPeo01"),
+      psc_fin_01_hangende_bedragen: pcValueOrNull("pcFin01"),
+    };
+    const pcHeeftAntwoord = Object.values(praktijkcontinuiteit).some((v) => v !== null);
+    practiceProfile.praktijkcontinuiteit = pcHeeftAntwoord ? praktijkcontinuiteit : null;
 
     const leadPayload = {
       sector: SECTORS[currentSector].name,
