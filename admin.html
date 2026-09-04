@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Zenpertise — Beheer</title>
+<style>
+  :root {
+    --primary: #2f6f5e; --primary-dark: #234f42; --bg: #f4f7f6;
+    --border: #dbe4e1; --red: #c0392b; --amber: #b7791f; --text: #1f2d29;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); display:flex; justify-content:center; padding:24px; }
+  .card { width:100%; max-width:760px; background:white; border-radius:14px; box-shadow:0 2px 14px rgba(0,0,0,0.06); border:1px solid var(--border); overflow:hidden; }
+  .header { background:var(--primary); color:white; padding:20px 24px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .header h1 { margin:0 0 4px; font-size:19px; }
+  .header p { margin:0; font-size:13px; opacity:0.9; }
+  .header button { background:rgba(255,255,255,0.15); color:white; border:1px solid rgba(255,255,255,0.4); border-radius:8px; padding:7px 12px; font-size:12px; cursor:pointer; white-space:nowrap; }
+  .header button:hover { background:rgba(255,255,255,0.25); }
+  .body { padding:22px 24px; }
+
+  /* --- login --- */
+  #loginWrap .field { margin-bottom:14px; }
+  #loginWrap label { display:block; font-size:13px; font-weight:600; margin-bottom:6px; }
+  #loginWrap input { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); font-size:14px; }
+  #loginBtn { background:var(--primary); color:white; border:none; border-radius:10px; padding:11px 18px; font-size:14px; font-weight:600; cursor:pointer; }
+  #loginBtn:hover { background:var(--primary-dark); }
+  #loginBtn:disabled { opacity:0.6; cursor:default; }
+  #loginError { color:var(--red); font-size:13px; margin-top:10px; display:none; }
+  .login-note { font-size:12px; color:#889; margin-top:16px; line-height:1.5; }
+
+  /* --- dashboard --- */
+  .tile { border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+  .tile h2 { margin:0 0 4px; font-size:15px; color:var(--primary-dark); }
+  .tile .sub { font-size:12px; color:#889; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:0.02em; color:#889; font-weight:600; }
+  .badge { display:inline-block; border-radius:999px; padding:2px 9px; font-size:11px; font-weight:600; }
+  .badge.used { background:#eef3f1; color:var(--primary-dark); }
+  .badge.free { background:#f6ecd8; color:var(--amber); }
+  .empty-note { font-size:12.5px; color:#889; font-style:italic; }
+  .review-entry { border-top:1px solid var(--border); padding:10px 0; font-size:12.5px; }
+  .review-entry:first-child { border-top:none; padding-top:0; }
+  .review-entry .who { font-weight:600; margin-bottom:2px; }
+  .review-entry .quote { color:#445; line-height:1.5; }
+  .bench-sector { margin-bottom:12px; }
+  .bench-sector .sname { font-weight:600; font-size:13px; margin-bottom:6px; }
+  .bench-row { display:flex; justify-content:space-between; font-size:12.5px; padding:3px 0; border-bottom:1px dashed var(--border); }
+  .doc-list { list-style:none; margin:0; padding:0; font-size:13px; }
+  .doc-list li { padding:6px 0; border-bottom:1px solid var(--border); }
+  .doc-list li:last-child { border-bottom:none; }
+  .doc-list a { color:var(--primary-dark); font-weight:600; text-decoration:none; }
+  .doc-list a:hover { text-decoration:underline; }
+  .doc-list .desc { color:#889; font-size:12px; margin-top:2px; }
+  #dashError { color:var(--red); font-size:13px; }
+  #dashWrap { display:none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div>
+      <h1>Zenpertise — Beheer</h1>
+      <p>Vrijwilligers, reviews en jouw eigen testresultaten in één overzicht.</p>
+    </div>
+    <button id="logoutBtn" style="display:none;" type="button">Uitloggen</button>
+  </div>
+  <div class="body">
+
+    <div id="loginWrap">
+      <div class="field">
+        <label for="adminKeyInput">Beheersleutel</label>
+        <input type="password" id="adminKeyInput" placeholder="Je ADMIN_KEY" autocomplete="off">
+      </div>
+      <button id="loginBtn" type="button">Inloggen</button>
+      <div id="loginError">Ongeldige sleutel — controleer of ADMIN_KEY correct op Render staat ingesteld en of je hier dezelfde waarde intypt.</div>
+      <div class="login-note">
+        Dit scherm is niet gelinkt vanaf de gewone Quick Scan-pagina — enkel bereikbaar als je deze
+        URL zelf kent. De sleutel wordt enkel lokaal in je browser onthouden (voor deze sessie), niet
+        ergens opgeslagen.
+      </div>
+    </div>
+
+    <div id="dashWrap">
+      <div id="dashError"></div>
+
+      <div class="tile">
+        <h2>Vrijwilligers</h2>
+        <div class="sub" id="promoSub"></div>
+        <table id="promoTable">
+          <thead><tr><th>Code</th><th>Status</th><th>Naam</th><th>E-mail</th><th>Sector</th><th>Wanneer</th></tr></thead>
+          <tbody id="promoBody"></tbody>
+        </table>
+      </div>
+
+      <div class="tile">
+        <h2>Reviews</h2>
+        <div class="sub" id="feedbackSub"></div>
+        <div id="feedbackAverages"></div>
+        <div id="feedbackEntries" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="tile">
+        <h2>Mijn benchmark</h2>
+        <div class="sub">Gemiddelde scores van je eigen testers, per sector en per BSC-perspectief — geen vergelijking met andere Zenpertise-gebruikers (dat komt pas na de DPIA-validatie, Fase 7).</div>
+        <div id="benchmarkWrap"></div>
+      </div>
+
+      <div class="tile">
+        <h2>Documenten</h2>
+        <div class="sub">Wat live op de site staat, staat hieronder gelinkt. Al de rest (DPIA-document, businessplan, master Excel-bestand, echte wachtwoorden/API-sleutels) staat bewust NIET hier — zie het Zenpertise-overzichtsdocument op je eigen computer (map "zenpertise") en gebruik voor wachtwoorden een wachtwoordbeheerder, nooit deze pagina of GitHub.</div>
+        <ul class="doc-list" id="docList"></ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const BACKEND_URL = "https://zenpertise-backend.onrender.com";
+  const ADMIN_KEY_STORAGE = "zenpertise_admin_key"; // sessionStorage — enkel voor deze tab-sessie.
+
+  const loginWrap = document.getElementById("loginWrap");
+  const dashWrap = document.getElementById("dashWrap");
+  const adminKeyInput = document.getElementById("adminKeyInput");
+  const loginBtn = document.getElementById("loginBtn");
+  const loginError = document.getElementById("loginError");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const dashError = document.getElementById("dashError");
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    try { return new Date(iso).toLocaleString("nl-BE", { dateStyle: "medium", timeStyle: "short" }); }
+    catch (e) { return iso; }
+  }
+
+  function escapeHtml(s) {
+    return (s == null ? "" : String(s)).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+
+  function renderPromo(promo) {
+    document.getElementById("promoSub").textContent =
+      promo.aantal_gebruikt + " van " + promo.totaal_codes + " codes gebruikt — " + promo.aantal_over + " nog vrij.";
+    const body = document.getElementById("promoBody");
+    body.innerHTML = promo.codes.map((c) =>
+      "<tr>" +
+        "<td><code>" + escapeHtml(c.code) + "</code></td>" +
+        "<td><span class='badge " + (c.gebruikt ? "used" : "free") + "'>" + (c.gebruikt ? "gebruikt" : "nog vrij") + "</span></td>" +
+        "<td>" + escapeHtml(c.door || "—") + "</td>" +
+        "<td>" + escapeHtml(c.email || "—") + "</td>" +
+        "<td>" + escapeHtml(c.sector || "—") + "</td>" +
+        "<td>" + (c.op ? fmtDate(c.op) : "—") + "</td>" +
+      "</tr>"
+    ).join("");
+  }
+
+  function renderFeedback(feedback) {
+    document.getElementById("feedbackSub").textContent =
+      feedback.aantal_ingezonden + " reactie(s) ontvangen.";
+    const avgWrap = document.getElementById("feedbackAverages");
+    if (feedback.aantal_ingezonden === 0) {
+      avgWrap.innerHTML = '<div class="empty-note">Nog geen feedback binnengekomen.</div>';
+    } else {
+      avgWrap.innerHTML = Object.entries(feedback.gemiddelden_per_vraag)
+        .filter(([, avg]) => avg !== null)
+        .map(([field, avg]) => '<div class="bench-row"><span>' + escapeHtml(field) + '</span><span><strong>' + avg + '</strong>/5</span></div>')
+        .join("");
+    }
+    const entriesWrap = document.getElementById("feedbackEntries");
+    const withNotes = feedback.entries.filter((e) => e.ontbrekende_items && e.ontbrekende_items.trim());
+    if (withNotes.length === 0) {
+      entriesWrap.innerHTML = "";
+    } else {
+      entriesWrap.innerHTML = "<div style='font-size:12px;color:#889;margin-bottom:6px;'>Open opmerkingen:</div>" +
+        withNotes.map((e) =>
+          '<div class="review-entry"><div class="who">' + escapeHtml(e.naam || "Anoniem") +
+          (e.sector ? " — " + escapeHtml(e.sector) : "") + '</div><div class="quote">"' +
+          escapeHtml(e.ontbrekende_items) + '"</div></div>'
+        ).join("");
+    }
+  }
+
+  function renderBenchmark(bench) {
+    const wrap = document.getElementById("benchmarkWrap");
+    const sectors = Object.keys(bench.per_sector || {});
+    let html = '<div class="sub" style="margin-bottom:10px;">' +
+      bench.aantal_met_minstens_1_scan + " van " + bench.totaal_pilotdeelnemers + " pilotdeelnemers hebben al minstens 1 scan afgerond.</div>";
+    if (sectors.length === 0) {
+      html += '<div class="empty-note">Nog geen scores om te tonen — komt vanzelf zodra vrijwilligers hun scan afronden.</div>';
+    } else {
+      html += sectors.map((sector) => {
+        const persp = bench.per_sector[sector];
+        const rows = Object.entries(persp).map(([label, v]) =>
+          '<div class="bench-row"><span>' + escapeHtml(label) + '</span><span><strong>' + v.gemiddelde + '</strong>/100 (n=' + v.aantal + ')</span></div>'
+        ).join("");
+        return '<div class="bench-sector"><div class="sname">' + escapeHtml(sector) + '</div>' + rows + '</div>';
+      }).join("");
+    }
+    wrap.innerHTML = html;
+  }
+
+  function renderDocs() {
+    const origin = window.location.origin;
+    const docs = [
+      { title: "Privacyverklaring", href: origin + "/privacyverklaring.html", desc: "Live juridische pagina op de site zelf." },
+      { title: "Algemene voorwaarden", href: origin + "/algemene-voorwaarden.html", desc: "Live juridische pagina op de site zelf." },
+      { title: "Testfeedback-formulier", href: origin + "/feedback.html", desc: "Zelfde formulier dat vrijwilligers invullen." },
+    ];
+    document.getElementById("docList").innerHTML = docs.map((d) =>
+      '<li><a href="' + d.href + '" target="_blank" rel="noopener">' + escapeHtml(d.title) + '</a><div class="desc">' + escapeHtml(d.desc) + '</div></li>'
+    ).join("") +
+    '<li><strong>Overige documenten</strong><div class="desc">DPIA-document, prijsstelling/businessplan-PDF, master Excel-bestand, wervingsmateriaal — deze staan niet op de website (bewust, niet publiek), maar lokaal in je "zenpertise"-map en/of Google Drive. Zie het Zenpertise-overzichtsdocument voor de exacte locaties.</div></li>';
+  }
+
+  async function loadDashboard(key) {
+    dashError.textContent = "";
+    try {
+      const res = await fetch(BACKEND_URL + "/api/admin/dashboard?key=" + encodeURIComponent(key));
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || ("Serverfout (" + res.status + ")"));
+      }
+      const data = await res.json();
+      renderPromo(data.promo);
+      renderFeedback(data.feedback);
+      renderBenchmark(data.eigen_benchmark);
+      renderDocs();
+      loginWrap.style.display = "none";
+      dashWrap.style.display = "block";
+      logoutBtn.style.display = "inline-block";
+    } catch (e) {
+      // Foute/ontbrekende sleutel -> terug naar het loginscherm met foutmelding, niet een kapotte
+      // dashboard-weergave.
+      try { sessionStorage.removeItem(ADMIN_KEY_STORAGE); } catch (err) { /* negeren */ }
+      loginWrap.style.display = "block";
+      dashWrap.style.display = "none";
+      logoutBtn.style.display = "none";
+      loginError.textContent = e.message || "Ongeldige sleutel.";
+      loginError.style.display = "block";
+    }
+  }
+
+  function tryLogin() {
+    const key = (adminKeyInput.value || "").trim();
+    if (!key) return;
+    loginError.style.display = "none";
+    loginBtn.disabled = true;
+    try { sessionStorage.setItem(ADMIN_KEY_STORAGE, key); } catch (e) { /* privémodus etc. — negeren */ }
+    loadDashboard(key).finally(() => { loginBtn.disabled = false; });
+  }
+
+  loginBtn.addEventListener("click", tryLogin);
+  adminKeyInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryLogin(); });
+  logoutBtn.addEventListener("click", () => {
+    try { sessionStorage.removeItem(ADMIN_KEY_STORAGE); } catch (e) { /* negeren */ }
+    window.location.reload();
+  });
+
+  // Automatisch inloggen als deze tab-sessie al een geldige sleutel had (bv. na een reload).
+  let savedKey = null;
+  try { savedKey = sessionStorage.getItem(ADMIN_KEY_STORAGE); } catch (e) { /* negeren */ }
+  if (savedKey) {
+    adminKeyInput.value = savedKey;
+    loadDashboard(savedKey);
+  }
+</script>
+</body>
+</html>
