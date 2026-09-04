@@ -54,8 +54,10 @@
   <div class="body">
     <div class="intro">
       Je hebt de Zenpertise Quick Scan gratis getest. We willen de tool graag verbeteren vóór de
-      echte lancering — je eerlijke mening helpt daar enorm bij. Elke vraag beantwoord je met een
-      score van 1 (slecht) tot 5 (uitmuntend).
+      echte lancering — je eerlijke mening helpt daar enorm bij. Elke vraag hieronder beantwoord je
+      met dezelfde score: 1 (helemaal ontevreden) tot 5 (helemaal tevreden). Daarna volgt nog één
+      open vraag over wat je eventueel mist — die mag je zo uitgebreid beantwoorden als je wil, of
+      gewoon overslaan.
     </div>
 
     <form id="feedbackForm">
@@ -74,10 +76,7 @@
 
       <div id="questionsWrap"></div>
 
-      <div class="field" style="margin-top:6px;">
-        <label for="opmerkingen">Opmerkingen of bugs (optioneel)</label>
-        <textarea id="opmerkingen" placeholder="Wat viel je op? Liep er iets fout? Wat mis je?"></textarea>
-      </div>
+      <div id="openQuestionsWrap"></div>
 
       <button type="submit" class="submit-btn" id="submitBtn">Feedback versturen</button>
       <div id="statusMsg"></div>
@@ -90,17 +89,30 @@
 <script>
   const BACKEND_URL = "https://zenpertise-backend.onrender.com";
 
+  // Alle scorevragen gebruiken bewust dezelfde uniforme schaal (1 = helemaal ontevreden, 5 = helemaal
+  // tevreden) zodat ze één-op-één benchmarkbaar zijn tussen praktijken en tussen scans.
+  // score_blijven_gebruiken verwijst BEWUST alleen naar de live Deel 1-prijzen (€25 zelfstandig
+  // +herscan, €650 begeleidingstraject) — geen maand-/jaarabonnement (€79-99/mnd), want dat is nog
+  // geen actieve prijslijst, enkel een richtprijs voor latere businessplanning. Zelfde veldnamen als
+  // FEEDBACK_QUESTIONS in main.py — hou die twee gesynchroniseerd.
   const QUESTIONS = [
-    { field: "score_gebruiksvriendelijkheid", label: "Hoe gebruiksvriendelijk was de Quick Scan zelf (de vragenlijst)?" },
-    { field: "score_relevantie_vragen", label: "Hoe relevant/herkenbaar waren de scanvragen voor jouw praktijk?" },
-    { field: "score_duidelijkheid_rapport", label: "Hoe duidelijk en overzichtelijk was het rapport dat je ontving?" },
-    { field: "score_waarde_stappenplan", label: "Hoe waardevol waren de concrete verbeterpunten/het stappenplan?" },
-    { field: "score_juistheid_scores", label: "Hoe herkenbaar/correct vond je de scores die je kreeg?" },
-    { field: "score_ai_chatbot", label: "Hoe tevreden was je over de antwoorden van de AI-chatbot?" },
-    { field: "score_snelheid", label: "Hoe vlot/snel werkte de tool (laadtijden, geen haperingen)?" },
-    { field: "score_duidelijkheid_website", label: "Hoe duidelijk was de uitleg op de website (wist je meteen wat je kreeg)?" },
-    { field: "score_prijs_waarde", label: "Hoe redelijk vond je de prijs (€25) t.o.v. wat je ervoor kreeg?" },
-    { field: "score_aanbeveling", label: "Hoe waarschijnlijk zou je Zenpertise aanbevelen aan een collega?" },
+    { field: "score_gebruiksvriendelijkheid", label: "Hoe tevreden ben je over de gebruiksvriendelijkheid van de Quick Scan (het invullen zelf)?" },
+    { field: "score_relevantie_vragen", label: "Hoe tevreden ben je over de relevantie van de scanvragen voor jouw praktijk?" },
+    { field: "score_duidelijkheid_rapport", label: "Hoe tevreden ben je over de duidelijkheid en overzichtelijkheid van het rapport?" },
+    { field: "score_waarde_stappenplan", label: "Hoe tevreden ben je over de waarde van de concrete verbeterpunten/het stappenplan?" },
+    { field: "score_juistheid_scores", label: "Hoe tevreden ben je over hoe herkenbaar/correct de scores aanvoelden?" },
+    { field: "score_ai_chatbot", label: "Hoe tevreden ben je over de AI-chatbot (indien gebruikt)?" },
+    { field: "score_snelheid", label: "Hoe tevreden ben je over de snelheid/soepelheid van de tool?" },
+    { field: "score_duidelijkheid_website", label: "Hoe tevreden ben je over de duidelijkheid van de uitleg op de website?" },
+    { field: "score_prijs_waarde", label: "Hoe tevreden ben je over de prijs (€25) t.o.v. wat je ervoor kreeg?" },
+    { field: "score_aanbeveling", label: "Hoe tevreden zou je zijn om Zenpertise aan te bevelen aan een collega-praktijkhouder?" },
+    { field: "score_blijven_gebruiken", label: "Hoe tevreden zou je zijn om na de gratis pilotperiode verder te gaan met Zenpertise (bv. een volgende scan à €25, of een begeleidingstraject)?" },
+  ];
+
+  // Eén open vraag (vereenvoudigd van 5 naar 1): puur gericht op wat ontbreekt. Zelfde veldnaam als
+  // FEEDBACK_OPEN_QUESTIONS in main.py — hou die twee gesynchroniseerd.
+  const OPEN_QUESTIONS = [
+    { field: "ontbrekende_items", label: "Wat mis je nog? (vragen in de scan, functionaliteit in het rapport of de AI-chatbot, of iets anders)", placeholder: "bv. een vraag over ..., of de mogelijkheid om ..." },
   ];
 
   const questionsWrap = document.getElementById("questionsWrap");
@@ -111,9 +123,20 @@
     for (let v = 1; v <= 5; v++) {
       scaleHtml += `<label><input type="radio" name="${q.field}" value="${v}" ${v === 3 ? "checked" : ""}><span>${v}</span></label>`;
     }
-    scaleHtml += '</div><div class="scale-caption"><span>1 · slecht</span><span>5 · uitmuntend</span></div>';
+    scaleHtml += '</div><div class="scale-caption"><span>1 · ontevreden</span><span>5 · helemaal tevreden</span></div>';
     div.innerHTML = `<div class="q-label">${i + 1}. ${q.label}</div>${scaleHtml}`;
     questionsWrap.appendChild(div);
+  });
+
+  const openQuestionsWrap = document.getElementById("openQuestionsWrap");
+  OPEN_QUESTIONS.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "question";
+    div.innerHTML = `
+      <div class="q-label">${QUESTIONS.length + i + 1}. ${q.label}</div>
+      <textarea id="open_${q.field}" placeholder="${q.placeholder}" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-family:inherit;resize:vertical;min-height:60px;"></textarea>
+    `;
+    openQuestionsWrap.appendChild(div);
   });
 
   // Vooraf invullen als naam/email meegegeven zijn via de link (bv. vanuit de bevestigingsmail
@@ -135,11 +158,14 @@
       naam: document.getElementById("naam").value.trim() || null,
       email: document.getElementById("email").value.trim() || null,
       sector: document.getElementById("sector").value.trim() || null,
-      opmerkingen: document.getElementById("opmerkingen").value.trim() || null,
     };
     QUESTIONS.forEach((q) => {
       const checked = document.querySelector(`input[name="${q.field}"]:checked`);
       payload[q.field] = checked ? parseInt(checked.value, 10) : 3;
+    });
+    OPEN_QUESTIONS.forEach((q) => {
+      const el = document.getElementById(`open_${q.field}`);
+      payload[q.field] = (el && el.value.trim()) || null;
     });
 
     try {
