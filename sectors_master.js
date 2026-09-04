@@ -39,7 +39,13 @@
       ],
     },
     logo: {
-      name: "Logopedist", icon: "🗣️", desc: "Logopedie-intake",
+      // Taak #341: was "🗣️" (SPEAKING HEAD + variation-selector U+FE0F) — datzelfde
+      // patroon als het eerder gefixte 🩺-icoon bij Huisarts (taak #246): zonder de
+      // variation-selector valt dit icoon terug op tekst-presentatie i.p.v. kleur-emoji op
+      // sommige platformen/fonts, met inconsistente weergave tot gevolg. "💬" (SPEECH
+      // BALLOON, één enkel codepoint, standaard emoji-presentatie) is thematisch even
+      // passend voor logopedie en heeft dat risico niet.
+      name: "Logopedist", icon: "💬", desc: "Logopedie-intake",
       docTitle: "Intakeformulier Logopedie",
       questions: [
         { key: "naam", label: "Voor- en achternaam van de patiënt?" },

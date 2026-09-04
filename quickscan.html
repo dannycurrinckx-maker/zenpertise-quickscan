@@ -250,6 +250,8 @@
 
   .improve-wrapper { position:relative; }
   .improve-list.locked { filter:blur(5px); user-select:none; pointer-events:none; }
+  /* Taak #336: het verplichte "één kerninzicht" in de gratis preview (P0.1-fix) — zichtbaar, geen advies. */
+  .key-insight { background:#f4f7f6; border:1px solid var(--border); border-left:3px solid var(--primary); border-radius:8px; padding:12px 14px; margin:14px 20px; font-size:13px; line-height:1.5; color:#1f2d29; }
   .lock-overlay {
     position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
     text-align:center; padding:24px; background:linear-gradient(to bottom, rgba(244,247,246,0.35), rgba(244,247,246,0.92) 55%);
@@ -673,8 +675,66 @@
     return flatQuestions.map((q) => ({ vraag: q.label, antwoord: answers[q.key] || "", perspectief: q.perspLabel }));
   }
 
+  // Taak #340: autosave/hervatten — de voortgang wordt lokaal opgeslagen (nooit naar de server
+  // gestuurd, puur voor hervatten in dezelfde browser) zodat een onderbroken scan (telefoontje,
+  // sluiten van het tabblad) niet betekent dat de praktijkhouder van vooraf aan moet herbeginnen.
+  // Bewust GEEN sessieverval-timer: iemand kan de scan makkelijk over meerdere dagen spreiden.
+  const PROGRESS_STORAGE_KEY = "zenpertise_quickscan_progress_v1";
+
+  function saveProgress() {
+    try {
+      localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify({
+        sector: currentSector, answers, qIndex, savedAt: new Date().toISOString(),
+      }));
+    } catch (e) { /* localStorage kan ontbreken/vol zijn (bv. privénavigatie) — autosave dan stil overslaan */ }
+  }
+
+  function clearSavedProgress() {
+    try { localStorage.removeItem(PROGRESS_STORAGE_KEY); } catch (e) { /* zie hierboven */ }
+  }
+
+  function loadSavedProgress() {
+    try {
+      const raw = localStorage.getItem(PROGRESS_STORAGE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || !data.sector || !SECTORS[data.sector] || !data.answers || typeof data.qIndex !== "number" || data.qIndex <= 0) return null;
+      return data;
+    } catch (e) { return null; }
+  }
+
   function renderSectorPicker() {
     sectorPicker.innerHTML = "";
+
+    // Onderbroken sessie gevonden? Bied hervatten aan vóór de sectorkeuze — de gebruiker beslist
+    // zelf, we forceren niets (confirm-not-block, zelfde principe als de contradictiedetectie
+    // hieronder: wij signaleren, de praktijkhouder beslist).
+    const saved = loadSavedProgress();
+    if (saved) {
+      const total = buildFlatQuestions(saved.sector).length;
+      const banner = document.createElement("div");
+      banner.style.cssText = "flex:1 1 100%;background:#eef3f1;border:1px solid var(--border);border-radius:10px;padding:14px 16px;color:#234f42;font-size:13px;line-height:1.5;";
+      const savedDate = saved.savedAt ? new Date(saved.savedAt).toLocaleDateString("nl-BE", { day: "numeric", month: "short" }) : "";
+      banner.innerHTML =
+        '<div style="font-weight:700;margin-bottom:4px;">Onderbroken scan gevonden</div>' +
+        '<div style="margin-bottom:10px;">Je was bezig met de ' + (SECTORS[saved.sector] ? SECTORS[saved.sector].name.toLowerCase() : saved.sector) +
+        'scan (vraag ' + saved.qIndex + ' van ' + total + (savedDate ? ", laatst bewaard op " + savedDate : "") + '). Verdergaan of opnieuw beginnen?</div>';
+      const btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
+      const resumeBtn = document.createElement("button");
+      resumeBtn.textContent = "Verdergaan waar ik gebleven was";
+      resumeBtn.style.cssText = "background:var(--primary);color:white;border:none;border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer;";
+      resumeBtn.onclick = () => resumeScan(saved);
+      const restartBtn = document.createElement("button");
+      restartBtn.textContent = "Opnieuw beginnen";
+      restartBtn.style.cssText = "background:white;color:var(--primary);border:1px solid var(--primary);border-radius:8px;padding:9px 14px;font-size:13px;cursor:pointer;";
+      restartBtn.onclick = () => { clearSavedProgress(); renderSectorPicker(); };
+      btnRow.appendChild(resumeBtn);
+      btnRow.appendChild(restartBtn);
+      banner.appendChild(btnRow);
+      sectorPicker.appendChild(banner);
+    }
+
     Object.keys(SECTORS).forEach((key) => {
       const s = SECTORS[key];
       const btn = document.createElement("button");
@@ -685,16 +745,17 @@
     });
   }
 
-  function startScan(key) {
-    currentSector = key;
-    answers = {};
-    qIndex = 0;
+  // Taak #340: de vragenlijst is voor een gegeven sector volledig deterministisch (geen willekeur,
+  // geen server-afhankelijkheid) — dus zowel een verse start (startScan) als het hervatten van een
+  // eerder opgeslagen sessie (resumeScan) kunnen dezelfde opbouw hergebruiken in plaats van hem te
+  // dupliceren.
+  function buildFlatQuestions(sectorKey) {
     // Eerst een losse basisvraag: hoeveel patiënten/cliënten kan de praktijk maximaal per week zien?
     // Dat getal is de 100%-basis waartegen we bezetting/no-show/niet-betaald hieronder automatisch
     // herrekenen — de praktijkeigenaar hoeft dus geen percentages zelf in te schatten, enkel de
     // ruwe aantallen die hij toch al kent. Telt niet mee als één van de "12 vragen" en beïnvloedt de
     // score niet rechtstreeks (geen status()-functie, dus nooit in BSC-perspectieven/rapport).
-    flatQuestions = [
+    const list = [
       {
         key: "maxCapaciteit", perspKey: "setup", perspLabel: "Basisgegevens", isSetup: true,
         label: "Om te beginnen: hoeveel patiënten/cliënten kan je praktijk maximaal per week zien? (getal, bv. 60 — dit is je 100%-basis, de volgende vragen rekenen we automatisch om naar percentages)",
@@ -704,8 +765,17 @@
     // Praktijkcontinuiteit vooraan (na de basisvraag, vóór de 5 BSC-perspectieven) -- bewust
     // vroeg in de flow: het geeft de praktijkhouder meteen het gevoel dat we de dagelijkse
     // praktijkrealiteit begrijpen, niet enkel abstracte BSC-cijfers.
-    PC_QUESTIONS.forEach((q) => flatQuestions.push({ perspKey: "praktijkwerking", perspLabel: "Praktijkwerking", isPC: true, ...q }));
-    BSC.forEach((persp) => persp.questions.forEach((q) => flatQuestions.push({ perspKey: persp.key, perspLabel: persp.label, ...q })));
+    PC_QUESTIONS.forEach((q) => list.push({ perspKey: "praktijkwerking", perspLabel: "Praktijkwerking", isPC: true, ...q }));
+    BSC.forEach((persp) => persp.questions.forEach((q) => list.push({ perspKey: persp.key, perspLabel: persp.label, ...q })));
+    return list;
+  }
+
+  function startScan(key) {
+    currentSector = key;
+    answers = {};
+    qIndex = 0;
+    flatQuestions = buildFlatQuestions(key);
+    clearSavedProgress(); // verse start: een eventuele oudere, onderbroken sessie is niet meer relevant
 
     sectorPicker.style.display = "none";
     reportArea.style.display = "none";
@@ -713,6 +783,24 @@
     messagesEl.innerHTML = "";
     headerSub.textContent = SECTORS[key].name + " — quick scan loopt";
     botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. Eerst één basisvraag over je praktijkcapaciteit. Dan een kort blok over hoe je praktijk vandaag écht draait — telefonie, IT, bezetting, betalingen — zodat we meteen goed zicht hebben op je dagelijkse realiteit. Daarna nog 21 vragen verdeeld over 5 aandachtsgebieden: naast de operationele cijfers ook enkele strategische vragen over je businessmodel, en je eigen leiderschap en veerkracht als praktijkhouder. Percentages berekenen we automatisch voor je op basis van de aantallen die je invult.");
+    setTimeout(askNext, 400);
+  }
+
+  // Taak #340: hervat een eerder onderbroken scan (localStorage) exact bij de vraag waar de
+  // praktijkhouder gebleven was — geen "opnieuw van vooraf aan" na het sluiten van het tabblad of
+  // een tussentijds telefoontje.
+  function resumeScan(saved) {
+    currentSector = saved.sector;
+    answers = saved.answers || {};
+    flatQuestions = buildFlatQuestions(saved.sector);
+    qIndex = Math.min(saved.qIndex || 0, flatQuestions.length);
+
+    sectorPicker.style.display = "none";
+    reportArea.style.display = "none";
+    chatArea.style.display = "block";
+    messagesEl.innerHTML = "";
+    headerSub.textContent = SECTORS[saved.sector].name + " — quick scan loopt (hervat)";
+    botSay("Welkom terug! We gaan verder waar je gebleven was met de scan voor jouw " + SECTORS[saved.sector].name.toLowerCase() + "praktijk.");
     setTimeout(askNext, 400);
   }
 
@@ -728,12 +816,15 @@
     return new Promise((resolve) => setTimeout(() => { addMessage(text, "bot"); speak(text); resolve(); }, delay || 300));
   }
 
-  function setQuickReplies(options) {
+  // Taak #340: optionele `handler` — normaal gaat een klik gewoon naar handleAnswer() (de vraag
+  // beantwoorden), maar de contradictiebevestiging hieronder heeft een EIGEN afhandeling nodig
+  // ("klopt dat zo?" is geen antwoord op de eigenlijke vraag) zonder de hoofd-flow te herschrijven.
+  function setQuickReplies(options, handler) {
     quickRepliesEl.innerHTML = "";
     (options || []).forEach((opt) => {
       const btn = document.createElement("button");
       btn.textContent = opt;
-      btn.onclick = () => handleAnswer(opt);
+      btn.onclick = () => (handler || handleAnswer)(opt);
       quickRepliesEl.appendChild(btn);
     });
   }
@@ -801,6 +892,43 @@
     return { ok: true, value: text };
   }
 
+  // Taak #340 (invoerbetrouwbaarheid): herkent innerlijk tegenstrijdige antwoordcombinaties (bv.
+  // "nooit verstoord" maar toch meer dan 8 verloren werkuren, of meer niet-betalende patiënten dan
+  // er patiënten gezien werden) zodat een tikfout of misverstane vraag niet stilzwijgend een
+  // vertekend rapport/advies oplevert. Bewust CONFIRM-NOT-BLOCK: dit blokkeert de flow nooit — de
+  // praktijkhouder kan de combinatie altijd bevestigen als die toch klopt (bv. een reële
+  // uitzondering) en gaat dan gewoon verder. Geeft null terug als er niets opvalt.
+  function checkContradiction(q, value) {
+    if (q.key === "pcOp03" && value === "Meer dan 8 uur" && answers.pcOp01 === "Nooit") {
+      return "Even dubbelchecken: je gaf net aan dat je praktijkwerking de afgelopen 30 dagen NOOIT verstoord werd door IT, telefoon, materiaal, lokalen of een leverancier — maar nu wel meer dan 8 verloren werkuren daardoor. Klopt die combinatie zo?";
+    }
+    if (q.key === "nietBetaaldPerWeek") {
+      const seen = parseFloat(answers.patientenPerWeek);
+      const unpaid = parseFloat(value);
+      if (!isNaN(seen) && !isNaN(unpaid) && seen > 0 && unpaid > seen) {
+        return "Even dubbelchecken: bij " + unpaid + " patiënten/cliënten per week blijft de betaling uit, maar je zag er gemiddeld maar " + seen + " per week — dat kan normaal niet meer zijn dan het aantal dat je ziet. Klopt dat zo?";
+      }
+    }
+    if (q.key === "noShowPerWeek" || q.key === "laattijdigeAnnuleringen") {
+      const cap = parseFloat(answers.maxCapaciteit);
+      const seen = parseFloat(answers.patientenPerWeek);
+      const noShow = parseFloat(q.key === "noShowPerWeek" ? value : answers.noShowPerWeek);
+      const late = parseFloat(q.key === "laattijdigeAnnuleringen" ? value : answers.laattijdigeAnnuleringen);
+      // Pas checken zodra alle 3 de bouwstenen gekend zijn (dus effectief bij de LAATSTE van de
+      // twee, laattijdigeAnnuleringen) — en met wat marge (>15% boven capaciteit) voor legitieme
+      // inschuifafspraken, zodat we niet bij elke kleine afronding al een melding tonen.
+      if (!isNaN(cap) && !isNaN(seen) && !isNaN(noShow) && !isNaN(late) && cap > 0) {
+        const totaal = seen + noShow + late;
+        if (totaal > cap * 1.15) {
+          return "Even dubbelchecken: " + seen + " patiënten gezien + " + noShow + " no-show + " + late +
+            " laattijdig geannuleerd is samen ongeveer " + Math.round(totaal) + " per week — meer dan je opgegeven maximale capaciteit van " + cap +
+            " per week. Klopt dat (bv. door extra inschuifafspraken), of klopt één van die aantallen niet helemaal?";
+        }
+      }
+    }
+    return null;
+  }
+
   async function handleAnswer(rawText) {
     const text = (rawText || "").trim();
     if (!text) return;
@@ -817,7 +945,27 @@
     }
     setQuickReplies([]);
     answers[q.key] = result.value;
+
+    const warning = checkContradiction(q, result.value);
+    if (warning) {
+      await botSay(warning, 200);
+      setQuickReplies(["Ja, dat klopt zo", "Nee, ik pas dit antwoord aan"], async (choice) => {
+        if (choice === "Nee, ik pas dit antwoord aan") {
+          setQuickReplies([]);
+          await botSay("Geen probleem — geef het juiste antwoord voor: " + q.label, 150);
+          setQuickReplies(q.quick);
+          return;
+        }
+        setQuickReplies([]);
+        qIndex++;
+        saveProgress();
+        await askNext();
+      });
+      return;
+    }
+
     qIndex++;
+    saveProgress();
     await askNext();
   }
 
@@ -1125,6 +1273,9 @@
   }
 
   function showReport() {
+    // Taak #340: de scan is voltooid -- een oudere "onderbroken sessie"-hervatbanner heeft vanaf nu
+    // geen zin meer (opnieuw scannen gaat gewoon via de normale sectorkeuze).
+    clearSavedProgress();
     chatArea.style.display = "none";
     reportArea.style.display = "block";
 
@@ -1135,6 +1286,16 @@
     let improveHtml = "";
     const quickWins = [];
 
+    // BELANGRIJK (taak #336 — P0.1-fix n.a.v. de launchverbeteringen-audit): deze lijst werd voorheen
+    // gevuld met de ECHTE adviestekst (improveText) + berekende waarde (calc) en enkel visueel
+    // verborgen via CSS (filter:blur op .locked). Blur verbergt niets voor wie "Element inspecteren"
+    // of paginabron gebruikt — de volledige oplossingstekst per aandachtspunt lekte dus gewoon vóór
+    // betaling. We bouwen de gratis preview nu bewust met UITSLUITEND het onderwerp + status-kleur
+    // (geen advies, geen berekende invoerwaarde) — inhoudelijk niet meer dan wat quickWins al veilig
+    // toonde. De echte oplossingstekst wordt nooit meer clientside in de DOM gezet vóór betaling; die
+    // zit uitsluitend in het gemailde PDF-rapport (build_report_pdf in main.py, enkel verstuurd na
+    // een bevestigde Mollie-betaling of promo-redeem — zie payment_webhook()/redeem_promo()).
+    let weakestPersp = null; // voor het verplichte "één kerninzicht" in de gratis preview
     BSC.forEach((persp) => {
       const statuses = persp.questions.map((q) => q.status(answers[q.key], answers));
       // Perspectief-status = de slechtste van de drie
@@ -1143,14 +1304,19 @@
         '<div class="score-card"><div class="persp">' + escapeHtml(displayPerspLabel(persp.label)) + '</div>' +
         '<span class="badge ' + badgeClass(worst) + '">' + badgeLabel(worst) + '</span></div>';
 
+      const pScore = perspectiveScore(persp);
+      if (!weakestPersp || pScore < weakestPersp.score) {
+        weakestPersp = { label: displayPerspLabel(persp.label), score: pScore, worst };
+      }
+
       persp.questions.forEach((q) => {
         const st = q.status(answers[q.key], answers);
         if (st !== "green") {
-          const calc = q.display ? q.display(answers[q.key], answers) : "";
+          // Bewust GEEN improveText(q, st) en GEEN calc/q.display() hier — dat is precies de betaalde
+          // inhoud (zie comment hierboven). Enkel onderwerp + kleur, net als quickWins hieronder.
           improveHtml +=
             '<div class="improve-item"><div class="dot ' + badgeClass(st) + '"></div>' +
-            '<div><strong>' + escapeHtml(displayPerspLabel(persp.label)) + ':</strong> ' + escapeHtml(improveText(q, st)) +
-            (calc ? '<span class="calc-note">' + escapeHtml(calc) + '</span>' : '') + '</div></div>';
+            '<div><strong>' + escapeHtml(displayPerspLabel(persp.label)) + ':</strong> ' + escapeHtml(TOPIC_LABELS[q.key] || "Aandachtspunt") + '</div></div>';
           // Alleen het onderwerp (geen oplossingstekst) voor de "Snelle win-kansen"-tegel in het dashboard.
           quickWins.push({ title: TOPIC_LABELS[q.key] || displayPerspLabel(persp.label), impact: st });
         }
@@ -1162,6 +1328,13 @@
     if (!improveHtml) {
       improveHtml = '<div class="improve-item">Geen kritieke aandachtspunten gevonden op basis van deze antwoorden — goed bezig.</div>';
     }
+
+    // Eén kerninzicht (verplicht onderdeel van de gratis preview, taak #336) — wélk domein het zwaarst
+    // weegt, zonder te zeggen wat de oplossing is. Dat blijft voorbehouden aan het betaalde rapport.
+    const keyInsightHtml = (weakestPersp && weakestPersp.worst !== "green")
+      ? '<div class="key-insight"><strong>Kerninzicht:</strong> ' + escapeHtml(weakestPersp.label) +
+        ' trekt je totaalscore het meest naar beneden (' + weakestPersp.score + '/100) — dat weegt het zwaarst door in je verbeterplan.</div>'
+      : '';
 
     // Financieel perspectief zwak? Dan bieden we aan om een jaarrekening/boekhoud-Excel
     // aan te leveren voor een preciezere analyse (EBITDA, marges) — zie parse_financials.py.
@@ -1214,6 +1387,7 @@
         '<h2>Quick Scan-rapport — ' + escapeHtml(SECTORS[currentSector].name) + 'praktijk</h2>' +
         '<div class="sub">Score per Balanced Scorecard-perspectief. De concrete verbeterpunten en oplossingen zitten in het volledige rapport.</div>' +
         buildBscDashboardHtml(perspScores, chartSvg, quickWins) +
+        keyInsightHtml +
         '<div class="score-grid">' + scoreCardsHtml + '</div>' +
         '<div class="improve-wrapper">' +
           '<div class="improve-list' + (hasImprovements ? ' locked' : '') + '" id="improveList"><h3>Verbeterpunten</h3>' + improveHtml + '</div>' +
