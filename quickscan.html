@@ -1761,6 +1761,22 @@
         if (isHidden) document.getElementById("leadPromoCode").focus();
       });
     }
+
+    // Taak #343/#347 — wie via een FREE-code is binnengekomen (zie tryUnlock hierboven) hoeft die
+    // niet opnieuw in te typen: we vullen 'm hier vooraf in en tonen het veld meteen (i.p.v. achter
+    // de toggle verstopt). Enkel bij het digitale pad — de gratis testcode geldt sowieso niet voor
+    // het begeleidingstraject (zelfde regel als de server, zie /api/redeem-promo). De tester kan het
+    // veld nog altijd zelf leegmaken/aanpassen als hij toch liever betaalt.
+    if (path === "digital") {
+      let capturedCode = null;
+      try { capturedCode = sessionStorage.getItem(CAPTURED_PROMO_STORAGE_KEY); } catch (e) { /* negeren */ }
+      const leadPromoCodeEl = document.getElementById("leadPromoCode");
+      if (capturedCode && leadPromoCodeEl && promoCodeWrap) {
+        leadPromoCodeEl.value = capturedCode;
+        promoCodeWrap.style.display = "block";
+        if (promoToggleLink) promoToggleLink.textContent = "Testcode " + capturedCode + " automatisch ingevuld (klik om te wijzigen/verbergen)";
+      }
+    }
   }
 
   // Stuurt naam/e-mail/telefoon + scores + antwoorden naar de backend. Die genereert de PDF en
@@ -2509,7 +2525,18 @@
   // Puur client-side (geen gevoelige data achter dit slot) — voldoende om te
   // voorkomen dat toevallige bezoekers de scan starten, niet waterdicht.
   const ACCESS_CODE = "ZEN2026";
+  // Taak #343/#347 — 10 korte, per-vrijwilliger codes voor de gecontroleerde testronde: FREE1..
+  // FREE10. Deze codes doen dienst als toegangscode ÉN (verderop, in choosePath) als de gratis-
+  // testcode die het rapport + 1 dag AI-Q&A vrijgeeft — de tester typt zijn code dus maar één keer.
+  // Puur client-side lijstje, net als ACCESS_CODE hierboven: het geeft op zich niks van waarde vrij
+  // (enkel toegang tot de vragenlijst); de échte, harde controle — eenmalig gebruik, wie/wanneer —
+  // gebeurt server-side bij /api/redeem-promo (zie main.py, taak #343). Moet 1-op-1 overeenkomen met
+  // de PROMO_CODES env var op Render, anders wordt de vooraf-ingevulde code daar geweigerd.
+  const PILOT_FREE_CODES = Array.from({ length: 10 }, (_, i) => "FREE" + (i + 1));
   const ACCESS_STORAGE_KEY = "zenpertise_qs_unlocked";
+  // Welke FREE-code (indien van toepassing) deze sessie binnenkwam — auto-ingevuld bij het
+  // gratis-testcode-veld in choosePath(), zodat de tester 'm niet opnieuw moet intypen.
+  const CAPTURED_PROMO_STORAGE_KEY = "zenpertise_qs_captured_promo";
   const accessGateEl = document.getElementById("accessGate");
   const appRootEl = document.getElementById("appRoot");
   const accessCodeInput = document.getElementById("accessCodeInput");
@@ -2535,6 +2562,9 @@
   function tryUnlock() {
     const entered = (accessCodeInput.value || "").trim().toUpperCase();
     if (entered === ACCESS_CODE) {
+      unlockApp();
+    } else if (PILOT_FREE_CODES.includes(entered)) {
+      try { sessionStorage.setItem(CAPTURED_PROMO_STORAGE_KEY, entered); } catch (e) { /* negeren */ }
       unlockApp();
     } else {
       accessCodeError.style.display = "block";
