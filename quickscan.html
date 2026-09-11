@@ -1757,6 +1757,17 @@
             '<div style="font-size:11px;color:#889;margin-top:4px;">Geldig voor het digitale rapport — geeft het rapport gratis vrij plus 1 dag AI-Q&A-toegang.</div>' +
           '</div>' +
         '</div>' +
+        // Taak #370 — apart veld voor de 20%-kortingscode (i.t.t. de gratis testcode hierboven: dit
+        // vermindert enkel het te betalen bedrag bij Mollie, het omzeilt de betaling niet). Blijft
+        // verborgen tot /api/redeem-promo meldt dat de gedeelde testcode vol zit en de tester deze
+        // code aangeboden krijgt (zie submitLead hieronder) — kan ook manueel geopend worden.
+        '<div style="margin-bottom:10px;">' +
+          '<a href="#" id="discountToggleLink" style="font-size:12px;color:#667;text-decoration:underline;">Heb je een kortingscode?</a>' +
+          '<div id="discountCodeWrap" style="display:none;margin-top:6px;">' +
+            '<input type="text" id="leadDiscountCode" placeholder="Kortingscode" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:13px;width:100%;box-sizing:border-box;">' +
+            '<div style="font-size:11px;color:#889;margin-top:4px;">Geldig voor het digitale rapport, gedurende een beperkte periode vanaf het moment dat je de code kreeg.</div>' +
+          '</div>' +
+        '</div>' +
         '<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#556;line-height:1.4;margin-bottom:12px;cursor:pointer;">' +
           '<input type="checkbox" id="leadConsent" style="margin-top:2px;flex-shrink:0;">' +
           '<span>Ik geef Zenpertise toestemming om mijn naam, e-mailadres' + (path === "consult" ? " en GSM-nummer" : "") + ' te gebruiken om mij het scanrapport te bezorgen' +
@@ -1807,6 +1818,18 @@
         const isHidden = promoCodeWrap.style.display === "none";
         promoCodeWrap.style.display = isHidden ? "block" : "none";
         if (isHidden) document.getElementById("leadPromoCode").focus();
+      });
+    }
+
+    // Taak #370 — zelfde toggle-patroon voor het kortingscode-veld.
+    const discountToggleLink = document.getElementById("discountToggleLink");
+    const discountCodeWrap = document.getElementById("discountCodeWrap");
+    if (discountToggleLink && discountCodeWrap) {
+      discountToggleLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        const isHidden = discountCodeWrap.style.display === "none";
+        discountCodeWrap.style.display = isHidden ? "block" : "none";
+        if (isHidden) document.getElementById("leadDiscountCode").focus();
       });
     }
 
@@ -1934,6 +1957,11 @@
     const pcHeeftAntwoord = Object.values(praktijkcontinuiteit).some((v) => v !== null);
     practiceProfile.praktijkcontinuiteit = pcHeeftAntwoord ? praktijkcontinuiteit : null;
 
+    // Taak #370 — de 20%-kortingscode is apart van de gratis testcode hieronder: ze vermindert enkel
+    // het bedrag dat /api/create-payment aan Mollie doorgeeft, ze omzeilt de betaling niet.
+    const discountCodeEl = document.getElementById("leadDiscountCode");
+    const discountCode = (discountCodeEl && discountCodeEl.value.trim()) || "";
+
     const leadPayload = {
       sector: SECTORS[currentSector].name,
       path: chosenPath,
@@ -1944,6 +1972,7 @@
       scan_answers: answeredQaList(),
       qa_addon: qaAddonValue || null,
       practice_profile: practiceProfile,
+      discount_code: discountCode || null,
     };
 
     // Gratis testcode: als er iets is ingevuld, gaan we NIET naar Mollie of het manuele fallback-
@@ -1966,7 +1995,28 @@
         });
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
-          throw new Error(errBody.detail || ("Serverfout (" + res.status + ")"));
+          const detail = errBody.detail;
+          // Taak #370 — als de gedeelde testcode volzit, stuurt de server GEEN platte string terug
+          // maar een object met een 20%-kortingscode erin (zie main.py /api/redeem-promo). Die
+          // vullen we hier meteen in bij het kortingscode-veld, zodat de tester meteen via de
+          // normale betaalknop verder kan i.p.v. zelf een code te moeten overtypen.
+          if (detail && typeof detail === "object" && detail.error === "promo_uitgeput") {
+            statusEl.textContent = detail.message || "Deze testcode is helaas vol.";
+            statusEl.style.color = "var(--amber, #b7791f)";
+            // Let op: discountCodeWrap/discountToggleLink zijn hier NIET in scope (die zijn lokaal
+            // aan de functie die de confirm-HTML opbouwt, niet aan submitLead) — daarom opnieuw
+            // via getElementById opzoeken i.p.v. op closure-variabelen te vertrouwen.
+            const dcWrap = document.getElementById("discountCodeWrap");
+            const dcToggle = document.getElementById("discountToggleLink");
+            if (detail.discount_code && discountCodeEl && dcWrap) {
+              discountCodeEl.value = detail.discount_code;
+              dcWrap.style.display = "block";
+              if (dcToggle) dcToggle.textContent = "Kortingscode " + detail.discount_code + " automatisch ingevuld — klik op 'Versturen' om verder te gaan (of wijzig/verberg)";
+            }
+            btn.disabled = false;
+            return;
+          }
+          throw new Error((typeof detail === "string" ? detail : (detail && detail.message)) || ("Serverfout (" + res.status + ")"));
         }
         const data = await res.json();
         statusEl.textContent = "Testcode toegepast — je ontvangt het rapport gratis per mail, met 1 dag AI-Q&A-toegang.";
@@ -2011,7 +2061,13 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(leadPayload),
         });
-        if (!res.ok) throw new Error("Serverfout (" + res.status + ")");
+        if (!res.ok) {
+          // Taak #370 — bv. een verlopen/foute kortingscode: toon de echte serverboodschap i.p.v.
+          // enkel de statuscode, zodat de tester weet dat het aan de kortingscode ligt.
+          const errBody = await res.json().catch(() => ({}));
+          const detail = errBody.detail;
+          throw new Error((typeof detail === "string" ? detail : null) || ("Serverfout (" + res.status + ")"));
+        }
         const data = await res.json();
         if (!data.checkout_url) throw new Error("geen checkout-URL ontvangen");
         statusEl.textContent = "Je wordt doorgestuurd naar de betaalpagina...";
