@@ -627,6 +627,84 @@
     pcOp02: { "Telefonie": "telefonie", "IT": "it", "Apparatuur": "apparatuur", "Voorraad": "voorraad", "Lokalen/linnen": "lokalen_linnen", "HR/bezetting": "hr_bezetting", "Claims/mutualiteiten": "claims_mutualiteiten", "Wanbetaling": "wanbetaling", "Taken/overdracht": "taken_overdracht", "Leveranciers": "leveranciers", "Geen van deze -- alles loopt vlot": null },
   };
 
+  // Leesbare oorzaak-knoptekst -> korte backend-code (zie PIJNPUNT_OORZAAK_LABELS in main.py).
+  // Taak #382 — per categorie exact 3 specifieke oorzaken + "Andere" (bewust een gesloten
+  // meerkeuzevraag i.p.v. vrije tekst, zodat Danny dit later per code kan aggregeren over
+  // pilotpraktijken heen — de "Andere"-optie vangt op wat niet in de 3 past, en Danny kan de
+  // precieze oorzaak dan alsnog persoonlijk navragen tijdens consulting indien relevant).
+  const PIJNPUNT_OORZAAK_CODE_MAP = {
+    voorraad: { "Niet (op tijd) besteld/vergeten": "niet_besteld", "Wel besteld, niet (op tijd) geleverd": "niet_geleverd", "Verkeerd of onvolledig geleverd": "foutief_geleverd", "Andere": "andere" },
+    it: { "Pc-/hardwareprobleem": "hardware", "Softwareprobleem": "software", "Netwerk-/internetprobleem": "netwerk", "Andere": "andere" },
+    hr_bezetting: { "Ziekte/afwezigheid": "ziekte", "Vrijwillig vertrek/ontslag": "vrijwillig_vertrek", "Moeilijk vervangen (wervingsprobleem)": "wervingsprobleem", "Andere": "andere" },
+    telefonie: { "Te weinig personeel om op te nemen": "te_weinig_personeel", "Piekmomenten/spits": "piekmomenten", "Technisch probleem (lijn/toestel)": "technisch_probleem", "Andere": "andere" },
+    apparatuur: { "Ouderdom/slijtage": "ouderdom_slijtage", "Onderhoud niet (op tijd) gebeurd": "onderhoud_gemist", "Defect onderdeel/geen wisselstuk": "geen_wisselstuk", "Andere": "andere" },
+    lokalen_linnen: { "Tekort aan linnen (was niet op tijd terug)": "linnen_tekort", "Ruimte dubbel geboekt": "dubbel_geboekt", "Onderhoud/herstelling van de ruimte": "onderhoud_ruimte", "Andere": "andere" },
+    claims_mutualiteiten: { "Administratieve fout eigen kant": "eigen_fout", "Foutieve/onduidelijke codering": "foutieve_codering", "Trage verwerking bij mutualiteit": "trage_verwerking", "Andere": "andere" },
+    wanbetaling: { "Vergeten op te volgen/geen herinnering": "geen_opvolging", "Klant betwist de factuur": "klant_betwist", "Financiële moeilijkheden bij klant": "financiele_moeilijkheden", "Andere": "andere" },
+    taken_overdracht: { "Geen overdrachtsdocument/checklist": "geen_checklist", "Mondelinge overdracht ontbrak": "geen_mondelinge_overdracht", "Planning/systeem niet up-to-date": "systeem_niet_up_to_date", "Andere": "andere" },
+    leveranciers: { "Levering te laat": "te_laat", "Levering onvolledig": "onvolledig", "Levering fout/verkeerd": "fout_verkeerd", "Andere": "andere" },
+  };
+
+  // Taak #373/#378/#382 — "2e laag": voor het pijnpunt dat de praktijk net aanduidde (pcOp02)
+  // eerst een korte oorzaak-keuzevraag (3 specifiek + "Andere"), dan 2 numerieke vragen, zodat
+  // main.py (_bereken_pijnpunt_impact) een verantwoorde inschatting van de HUIDIGE probleemomvang
+  // kan maken op basis van eigen cijfers, mét een informatieve oorzaak erbij (telt niet mee in de
+  // €-formule). Sinds taak #378 dekt dit alle 10 pcOp02-opties (enkel "geen van deze" heeft
+  // uiteraard geen verdieping). Interne sleutels moeten exact overeenkomen met PC_CODE_MAP.pcOp02
+  // hierboven en met PijnpuntVerdieping.categorie in main.py.
+  const PIJNPUNT_VERDIEPING_QUESTIONS = {
+    voorraad: [
+      { key: "ppVoorraadOorzaak", label: "Je gaf aan dat voorraad je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Niet (op tijd) besteld/vergeten", "Wel besteld, niet (op tijd) geleverd", "Verkeerd of onvolledig geleverd", "Andere"] },
+      { key: "ppVoorraadVerzet", label: "Hoe vaak moest je de afgelopen maand een behandeling verzetten of noodgedwongen improviseren omdat je zonder het juiste materiaal zat? (getal per maand)", numeric: { min: 0 } },
+      { key: "ppVoorraadSpoedkost", label: "Wat kost een spoedbestelling of vervangaankoop je gemiddeld extra, bovenop de normale prijs? (in euro — vul 0 in als je dit niet weet)", numeric: { min: 0 } },
+    ],
+    it: [
+      { key: "ppItOorzaak", label: "Je gaf aan dat IT je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Pc-/hardwareprobleem", "Softwareprobleem", "Netwerk-/internetprobleem", "Andere"] },
+      { key: "ppItStoringen", label: "Hoe vaak per maand heb je een storing (systeem plat, geen toegang tot dossiers/planning, kassa down, ...) die je werk echt hindert? (getal per maand)", numeric: { min: 0 } },
+      { key: "ppItDuur", label: "Hoe lang duurt zo'n storing gemiddeld, tot alles weer normaal werkt? (in uren)", numeric: { min: 0 } },
+    ],
+    hr_bezetting: [
+      { key: "ppPersoneelOorzaak", label: "Je gaf aan dat personeel/bezetting je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Ziekte/afwezigheid", "Vrijwillig vertrek/ontslag", "Moeilijk vervangen (wervingsprobleem)", "Andere"] },
+      { key: "ppPersoneelVertrekken", label: "Hoeveel medewerkers zijn er het afgelopen jaar vertrokken (en vervangen of nog te vervangen)? (getal)", numeric: { min: 0 } },
+      { key: "ppPersoneelInwerkweken", label: "Hoeveel weken duurt het gemiddeld voor een nieuwe medewerker terug volledig op snelheid is, vanaf de eerste werkdag? (getal in weken)", numeric: { min: 0 } },
+    ],
+    telefonie: [
+      { key: "ppTelefonieOorzaak", label: "Je gaf aan dat telefonie je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Te weinig personeel om op te nemen", "Piekmomenten/spits", "Technisch probleem (lijn/toestel)", "Andere"] },
+      { key: "ppTelefonieGemist", label: "Hoeveel telefoontjes/oproepen mis je gemiddeld per week omdat er niemand kan opnemen? (getal per week)", numeric: { min: 0 } },
+      { key: "ppTelefonieVerloren", label: "En hoeveel van die gemiste oproepen leiden er volgens jou toe dat de patiënt niet terugbelt en de afspraak dus gewoon verloren gaat (i.p.v. later ingepland te worden)? (getal per week)", numeric: { min: 0 } },
+    ],
+    apparatuur: [
+      { key: "ppApparatuurOorzaak", label: "Je gaf aan dat apparatuur je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Ouderdom/slijtage", "Onderhoud niet (op tijd) gebeurd", "Defect onderdeel/geen wisselstuk", "Andere"] },
+      { key: "ppApparatuurUitval", label: "Hoe vaak moest je de afgelopen maand een afspraak verzetten of annuleren door een defect toestel? (getal per maand)", numeric: { min: 0 } },
+      { key: "ppApparatuurHerstelkost", label: "Wat kost een spoedherstelling of vervangtoestel je gemiddeld extra (huur, spoedtarief, ...)? (in euro — vul 0 in als je dit niet weet)", numeric: { min: 0 } },
+    ],
+    lokalen_linnen: [
+      { key: "ppLokalenOorzaak", label: "Je gaf aan dat lokalen/linnen je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Tekort aan linnen (was niet op tijd terug)", "Ruimte dubbel geboekt", "Onderhoud/herstelling van de ruimte", "Andere"] },
+      { key: "ppLokalenVerzet", label: "Hoe vaak moest je de afgelopen maand een afspraak verzetten of een behandelruimte niet gebruiken door een tekort aan linnen/materiaal of een niet-beschikbare ruimte? (getal per maand)", numeric: { min: 0 } },
+      { key: "ppLokalenMeerkost", label: "Wat kost dat je gemiddeld extra (bv. spoedwasservice, extra linnenhuur)? (in euro — vul 0 in als je dit niet weet)", numeric: { min: 0 } },
+    ],
+    claims_mutualiteiten: [
+      { key: "ppClaimsOorzaak", label: "Je gaf aan dat claims/mutualiteiten je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Administratieve fout eigen kant", "Foutieve/onduidelijke codering", "Trage verwerking bij mutualiteit", "Andere"] },
+      { key: "ppClaimsAantal", label: "Hoeveel dossiers/claims worden er gemiddeld per maand geweigerd, vertraagd of moet je zelf achterheen? (getal per maand)", numeric: { min: 0 } },
+      { key: "ppClaimsBedrag", label: "Wat is het gemiddelde bedrag van zo'n geweigerde of vertraagde claim? (in euro)", numeric: { min: 0 } },
+    ],
+    wanbetaling: [
+      { key: "ppWanbetalingOorzaak", label: "Je gaf aan dat wanbetaling je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Vergeten op te volgen/geen herinnering", "Klant betwist de factuur", "Financiële moeilijkheden bij klant", "Andere"] },
+      { key: "ppWanbetalingBedrag", label: "Wat is het totale openstaande bedrag aan onbetaalde facturen op dit moment, bij benadering? (in euro — vul 0 in als je dit niet weet)", numeric: { min: 0 } },
+      { key: "ppWanbetalingUren", label: "Hoeveel uur per maand ben je ongeveer kwijt aan het opvolgen daarvan (herinneringen sturen, bellen, aanmaningen)? (in uren per maand)", numeric: { min: 0 } },
+    ],
+    taken_overdracht: [
+      { key: "ppTakenOorzaak", label: "Je gaf aan dat taken/overdracht je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Geen overdrachtsdocument/checklist", "Mondelinge overdracht ontbrak", "Planning/systeem niet up-to-date", "Andere"] },
+      { key: "ppTakenIncidenten", label: "Hoe vaak per maand loopt er iets mis (afspraak vergeten, taak niet opgevolgd, fout in dossier) omdat een taak niet goed werd overgedragen? (getal per maand)", numeric: { min: 0 } },
+      { key: "ppTakenHersteltijd", label: "Hoeveel tijd kost het je gemiddeld om zo'n fout recht te zetten? (in uren per keer)", numeric: { min: 0 } },
+    ],
+    leveranciers: [
+      { key: "ppLeveranciersOorzaak", label: "Je gaf aan dat leveranciers je vandaag het meeste tijd kost — wat is daarbij meestal de oorzaak?", quick: ["Levering te laat", "Levering onvolledig", "Levering fout/verkeerd", "Andere"] },
+      { key: "ppLeveranciersProblemen", label: "Hoe vaak per maand is een levering te laat, onvolledig of fout, waardoor je moet improviseren of een afspraak moet aanpassen? (getal per maand)", numeric: { min: 0 } },
+      { key: "ppLeveranciersMeerkost", label: "Wat kost het je gemiddeld extra om dat op te lossen (spoedbestelling, extra verplaatsing, ...)? (in euro — vul 0 in als je dit niet weet)", numeric: { min: 0 } },
+    ],
+  };
+
   const sectorPicker = document.getElementById("sectorPicker");
   const headerSub = document.getElementById("headerSub");
   const chatArea = document.getElementById("chatArea");
@@ -710,6 +788,7 @@
   let flatQuestions = [];
   let qIndex = 0;
   let answers = {};
+  let pijnpuntCategorie = null; // Taak #373 — "voorraad"/"it"/"hr_bezetting" zodra pcOp02 daarop wijst
   let chosenPath = null;
   let whatsappNumber = null;
   let paymentConfigured = false; // wordt bijgewerkt zodra /api/config antwoordt (zie showReport)
@@ -818,9 +897,31 @@
     return list;
   }
 
+  // Taak #373 — voegt de 2 pijnpunt-verdiepingsvragen toe aan flatQuestions, ONMIDDELLIJK ná de
+  // pcOp02-vraag, zodra answers.pcOp02 op een ondersteunde categorie wijst. Idempotent (checkt of
+  // ze al ingevoegd zijn) en zuiver — geen berichten/side-effects — zodat dezelfde functie zowel
+  // in de live flow (net na het antwoord) als bij resumeScan (na een herstart flatQuestions
+  // opnieuw opbouwen) veilig aangeroepen kan worden. Geeft true terug enkel wanneer ze NU net voor
+  // het eerst werden ingevoegd (zodat de aanroeper een korte overgangszin kan tonen).
+  function syncPijnpuntQuestions() {
+    const raw = answers.pcOp02;
+    if (!raw) return false;
+    const categorie = PC_CODE_MAP.pcOp02[raw];
+    const extra = categorie && PIJNPUNT_VERDIEPING_QUESTIONS[categorie];
+    if (!extra) return false;
+    const pcIdx = flatQuestions.findIndex((fq) => fq.key === "pcOp02");
+    if (pcIdx === -1) return false;
+    if (flatQuestions[pcIdx + 1] && flatQuestions[pcIdx + 1].isPijnpuntVerdieping) return false; // al aanwezig
+    pijnpuntCategorie = categorie;
+    const toInsert = extra.map((eq) => ({ perspKey: "praktijkwerking", perspLabel: "Praktijkwerking", isPC: true, isPijnpuntVerdieping: true, ...eq }));
+    flatQuestions.splice(pcIdx + 1, 0, ...toInsert);
+    return true;
+  }
+
   function startScan(key) {
     currentSector = key;
     answers = {};
+    pijnpuntCategorie = null;
     qIndex = 0;
     flatQuestions = buildFlatQuestions(key);
     clearSavedProgress(); // verse start: een eventuele oudere, onderbroken sessie is niet meer relevant
@@ -841,6 +942,7 @@
     currentSector = saved.sector;
     answers = saved.answers || {};
     flatQuestions = buildFlatQuestions(saved.sector);
+    syncPijnpuntQuestions(); // Taak #373 — herstel de eventueel al ingevoegde 2 verdiepingsvragen
     qIndex = Math.min(saved.qIndex || 0, flatQuestions.length);
 
     sectorPicker.style.display = "none";
@@ -880,6 +982,7 @@
   function updateProgress() {
     const q = flatQuestions[qIndex];
     if (q && q.isSetup) { progressEl.textContent = "Basisvraag"; return; }
+    if (q && q.isPijnpuntVerdieping) { progressEl.textContent = "Verdiepingsvraag"; return; }
     const setupCount = flatQuestions.filter((fq) => fq.isSetup).length;
     const total = flatQuestions.length - setupCount;
     progressEl.textContent = "Vraag " + Math.min(qIndex - setupCount + 1, total) + " van " + total;
@@ -993,6 +1096,13 @@
     }
     setQuickReplies([]);
     answers[q.key] = result.value;
+
+    // Taak #373 — "2e laag": net na het pijnpunt-antwoord, vóór de contradictiecheck/qIndex++
+    // hieronder, zodat de 2 eventuele extra vragen al in flatQuestions zitten tegen de tijd dat
+    // askNext() de volgende vraag opvraagt.
+    if (q.key === "pcOp02" && syncPijnpuntQuestions()) {
+      await botSay("Daarover stel ik nog 2 korte extra vragen, zodat we kunnen inschatten wat dit je vandaag ongeveer kost.", 200);
+    }
 
     const warning = checkContradiction(q, result.value);
     if (warning) {
@@ -1962,6 +2072,92 @@
     const discountCodeEl = document.getElementById("leadDiscountCode");
     const discountCode = (discountCodeEl && discountCodeEl.value.trim()) || "";
 
+    // Taak #373 — de 2 pijnpunt-verdiepingsvragen (indien getriggerd, zie syncPijnpuntQuestions)
+    // gaan als apart veld mee i.p.v. via scan_answers/answeredQaList(): het zijn geen BSC-vragen en
+    // main.py leest ze via het eigen PijnpuntVerdieping-model (_bereken_pijnpunt_impact).
+    const numOrNull = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
+    // Taak #382 — vertaalt het aangeklikte knoplabel van de oorzaak-vraag naar de interne code
+    // (zie PIJNPUNT_OORZAAK_CODE_MAP hierboven / PIJNPUNT_OORZAAK_LABELS in main.py). Geeft null
+    // terug als er geen antwoord is (bv. oudere sessie zonder deze vraag) — main.py handelt een
+    // ontbrekende oorzaak-code sowieso al af als "geen extra regel tonen".
+    const oorzaakCode = (categorie, raw) => {
+      if (!raw) return null;
+      const map = PIJNPUNT_OORZAAK_CODE_MAP[categorie];
+      return (map && map[raw]) || null;
+    };
+    let pijnpuntVerdieping = null;
+    if (pijnpuntCategorie === "voorraad") {
+      pijnpuntVerdieping = {
+        categorie: "voorraad",
+        voorraad_oorzaak: oorzaakCode("voorraad", answers.ppVoorraadOorzaak),
+        voorraad_verzet_per_maand: numOrNull(answers.ppVoorraadVerzet),
+        voorraad_spoedkost_eur: numOrNull(answers.ppVoorraadSpoedkost),
+      };
+    } else if (pijnpuntCategorie === "it") {
+      pijnpuntVerdieping = {
+        categorie: "it",
+        it_oorzaak: oorzaakCode("it", answers.ppItOorzaak),
+        it_storingen_per_maand: numOrNull(answers.ppItStoringen),
+        it_storing_duur_uur: numOrNull(answers.ppItDuur),
+      };
+    } else if (pijnpuntCategorie === "hr_bezetting") {
+      pijnpuntVerdieping = {
+        categorie: "hr_bezetting",
+        personeel_oorzaak: oorzaakCode("hr_bezetting", answers.ppPersoneelOorzaak),
+        personeel_vertrekken_jaar: numOrNull(answers.ppPersoneelVertrekken),
+        personeel_inwerkweken: numOrNull(answers.ppPersoneelInwerkweken),
+      };
+    } else if (pijnpuntCategorie === "telefonie") {
+      pijnpuntVerdieping = {
+        categorie: "telefonie",
+        telefonie_oorzaak: oorzaakCode("telefonie", answers.ppTelefonieOorzaak),
+        telefonie_gemist_per_week: numOrNull(answers.ppTelefonieGemist),
+        telefonie_verloren_per_week: numOrNull(answers.ppTelefonieVerloren),
+      };
+    } else if (pijnpuntCategorie === "apparatuur") {
+      pijnpuntVerdieping = {
+        categorie: "apparatuur",
+        apparatuur_oorzaak: oorzaakCode("apparatuur", answers.ppApparatuurOorzaak),
+        apparatuur_uitval_per_maand: numOrNull(answers.ppApparatuurUitval),
+        apparatuur_herstelkost_eur: numOrNull(answers.ppApparatuurHerstelkost),
+      };
+    } else if (pijnpuntCategorie === "lokalen_linnen") {
+      pijnpuntVerdieping = {
+        categorie: "lokalen_linnen",
+        lokalen_oorzaak: oorzaakCode("lokalen_linnen", answers.ppLokalenOorzaak),
+        lokalen_verzet_per_maand: numOrNull(answers.ppLokalenVerzet),
+        lokalen_meerkost_eur: numOrNull(answers.ppLokalenMeerkost),
+      };
+    } else if (pijnpuntCategorie === "claims_mutualiteiten") {
+      pijnpuntVerdieping = {
+        categorie: "claims_mutualiteiten",
+        claims_oorzaak: oorzaakCode("claims_mutualiteiten", answers.ppClaimsOorzaak),
+        claims_aantal_per_maand: numOrNull(answers.ppClaimsAantal),
+        claims_bedrag_gemiddeld_eur: numOrNull(answers.ppClaimsBedrag),
+      };
+    } else if (pijnpuntCategorie === "wanbetaling") {
+      pijnpuntVerdieping = {
+        categorie: "wanbetaling",
+        wanbetaling_oorzaak: oorzaakCode("wanbetaling", answers.ppWanbetalingOorzaak),
+        wanbetaling_openstaand_eur: numOrNull(answers.ppWanbetalingBedrag),
+        wanbetaling_uren_per_maand: numOrNull(answers.ppWanbetalingUren),
+      };
+    } else if (pijnpuntCategorie === "taken_overdracht") {
+      pijnpuntVerdieping = {
+        categorie: "taken_overdracht",
+        taken_oorzaak: oorzaakCode("taken_overdracht", answers.ppTakenOorzaak),
+        taken_incidenten_per_maand: numOrNull(answers.ppTakenIncidenten),
+        taken_hersteltijd_uur: numOrNull(answers.ppTakenHersteltijd),
+      };
+    } else if (pijnpuntCategorie === "leveranciers") {
+      pijnpuntVerdieping = {
+        categorie: "leveranciers",
+        leveranciers_oorzaak: oorzaakCode("leveranciers", answers.ppLeveranciersOorzaak),
+        leveranciers_problemen_per_maand: numOrNull(answers.ppLeveranciersProblemen),
+        leveranciers_meerkost_eur: numOrNull(answers.ppLeveranciersMeerkost),
+      };
+    }
+
     const leadPayload = {
       sector: SECTORS[currentSector].name,
       path: chosenPath,
@@ -1973,6 +2169,7 @@
       qa_addon: qaAddonValue || null,
       practice_profile: practiceProfile,
       discount_code: discountCode || null,
+      pijnpunt_verdieping: pijnpuntVerdieping,
     };
 
     // Gratis testcode: als er iets is ingevuld, gaan we NIET naar Mollie of het manuele fallback-
