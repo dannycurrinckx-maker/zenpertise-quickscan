@@ -627,6 +627,21 @@
     pcOp02: { "Telefonie": "telefonie", "IT": "it", "Apparatuur": "apparatuur", "Voorraad": "voorraad", "Lokalen/linnen": "lokalen_linnen", "HR/bezetting": "hr_bezetting", "Claims/mutualiteiten": "claims_mutualiteiten", "Wanbetaling": "wanbetaling", "Taken/overdracht": "taken_overdracht", "Leveranciers": "leveranciers", "Geen van deze -- alles loopt vlot": null },
   };
 
+  // Leesbare knoptekst -> korte backend-code (PracticeProfile.conventiestatus in main.py — geldige
+  // waarden: "geconventioneerd" | "niet-toegetreden" | "gedeeltelijk" | "gemengd"). Taak #385/#386 —
+  // deze vraag verhuisde van de optionele radio-knoppen (post-paywall "Over je praktijk"-blok) naar
+  // een verplichte hoofdflow-vraag vlak na de basisvraag over praktijkcapaciteit: zonder een
+  // expliciet antwoord viel de forecast voor een niet-(volledig-)geconventioneerde praktijk
+  // stilzwijgend terug op het RIZIV-sectorgemiddelde (zie _sector_tarief in main.py), ook al klopte
+  // dat tarief niet voor haar. Dezelfde 4 codes als voorheen, enkel de plek in de flow en het
+  // verplichte karakter veranderen.
+  const CONVENTIESTATUS_CODE_MAP = {
+    "Geconventioneerd": "geconventioneerd",
+    "Niet-toegetreden": "niet-toegetreden",
+    "Gedeeltelijk": "gedeeltelijk",
+    "Gemengd (team met beide statussen)": "gemengd",
+  };
+
   // Leesbare oorzaak-knoptekst -> korte backend-code (zie PIJNPUNT_OORZAAK_LABELS in main.py).
   // Taak #382 — per categorie exact 3 specifieke oorzaken + "Andere" (bewust een gesloten
   // meerkeuzevraag i.p.v. vrije tekst, zodat Danny dit later per code kan aggregeren over
@@ -889,12 +904,50 @@
         numeric: { min: 1 },
       },
     ];
+    // Taak #385/#386 — conventiestatus verplaatst van de optionele post-paywall-UI naar hier: een
+    // verplichte 2e basisvraag, zodat de forecast nooit meer stilzwijgend op het RIZIV-
+    // sectorgemiddelde terugvalt voor een praktijk die niet (volledig) geconventioneerd is. Enkel
+    // "isSetup" (zoals maxCapaciteit hierboven): geen BSC-score, telt niet mee in de vragenteller.
+    // Dierenartsen kennen geen RIZIV/mutualiteiten-conventiesysteem (marktprijzen, zie het
+    // "Marktgemiddelde"-commentaar bij dierenarts in SECTOR_TARIEVEN, main.py) en slaan deze vraag
+    // daarom over — voor hen blijft _sector_tarief() gewoon het markttarief gebruiken.
+    if (sectorKey !== "dierenarts") {
+      list.push({
+        key: "ppConventiestatus", perspKey: "setup", perspLabel: "Basisgegevens", isSetup: true,
+        label: "Is je praktijk geconventioneerd bij het RIZIV/de mutualiteiten, of niet? (bepaalt met welk tarief we in de forecast rekenen)",
+        quick: ["Geconventioneerd", "Niet-toegetreden", "Gedeeltelijk", "Gemengd (team met beide statussen)"],
+      });
+    }
     // Praktijkcontinuiteit vooraan (na de basisvraag, vóór de 5 BSC-perspectieven) -- bewust
     // vroeg in de flow: het geeft de praktijkhouder meteen het gevoel dat we de dagelijkse
     // praktijkrealiteit begrijpen, niet enkel abstracte BSC-cijfers.
     PC_QUESTIONS.forEach((q) => list.push({ perspKey: "praktijkwerking", perspLabel: "Praktijkwerking", isPC: true, ...q }));
     BSC.forEach((persp) => persp.questions.forEach((q) => list.push({ perspKey: persp.key, perspLabel: persp.label, ...q })));
     return list;
+  }
+
+  // Taak #385/#386 — spiegelt syncPijnpuntQuestions() hieronder: voegt de numerieke
+  // eigen-tarief-vervolgvraag toe ONMIDDELLIJK ná ppConventiestatus, zodra het antwoord niet
+  // "Geconventioneerd" is. Bewust ook bij "gedeeltelijk" (Danny's expliciete keuze, taak #385) —
+  // net als "niet-toegetreden"/"gemengd" hanteert zo'n praktijk tijdens haar niet-geconventioneerde
+  // uren/momenten een eigen tarief, en zonder dit veld valt de forecast voor die uren stilzwijgend
+  // terug op het RIZIV-sectorgemiddelde (zie _sector_tarief in main.py). Idempotent en zuiver, zelfde
+  // reden als syncPijnpuntQuestions(): zowel de live flow als resumeScan() kunnen dit veilig
+  // aanroepen. Geeft true terug enkel wanneer de vraag NU net voor het eerst werd ingevoegd.
+  function syncConventiestatusQuestion() {
+    const raw = answers.ppConventiestatus;
+    if (!raw) return false;
+    const code = CONVENTIESTATUS_CODE_MAP[raw];
+    if (!code || code === "geconventioneerd") return false;
+    const idx = flatQuestions.findIndex((fq) => fq.key === "ppConventiestatus");
+    if (idx === -1) return false;
+    if (flatQuestions[idx + 1] && flatQuestions[idx + 1].key === "ppEigenTarief") return false; // al aanwezig
+    flatQuestions.splice(idx + 1, 0, {
+      key: "ppEigenTarief", perspKey: "setup", perspLabel: "Basisgegevens", isSetup: true,
+      label: "Wat is je eigen tarief per sessie/consult tijdens de niet-geconventioneerde uren of momenten? (in euro, bv. 35 — dit gebruiken we voor een preciezere forecast in plaats van het RIZIV-sectorgemiddelde)",
+      numeric: { min: 0 },
+    });
+    return true;
   }
 
   // Taak #373 — voegt de 2 pijnpunt-verdiepingsvragen toe aan flatQuestions, ONMIDDELLIJK ná de
@@ -931,7 +984,16 @@
     chatArea.style.display = "block";
     messagesEl.innerHTML = "";
     headerSub.textContent = SECTORS[key].name + " — quick scan loopt";
-    botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. Eerst één basisvraag over je praktijkcapaciteit. Dan een kort blok over hoe je praktijk vandaag écht draait — telefonie, IT, bezetting, betalingen — zodat we meteen goed zicht hebben op je dagelijkse realiteit. Daarna nog 21 vragen verdeeld over 5 aandachtsgebieden: naast de operationele cijfers ook enkele strategische vragen over je businessmodel, en je eigen leiderschap en veerkracht als praktijkhouder. Percentages berekenen we automatisch voor je op basis van de aantallen die je invult.");
+    // Taak #388 — de intro-tekst is sector-afhankelijk sinds taak #386: alle sectoren behalve
+    // dierenarts krijgen nu 2 basisvragen (capaciteit + conventiestatus) i.p.v. 1. Dierenartsen
+    // kennen geen RIZIV/mutualiteiten-conventiesysteem (zie sectorKey !== "dierenarts"-check in
+    // buildFlatQuestions) en behouden dus de oorspronkelijke, kortere intro. Het aantal "21 vragen
+    // verdeeld over 5 aandachtsgebieden" verandert niet — de basisvragen tellen (zoals voorheen
+    // maxCapaciteit) niet mee in die 21, ze zijn isSetup en dus buiten de vragenteller.
+    const basisvraagIntro = key === "dierenarts"
+      ? "Eerst één basisvraag over je praktijkcapaciteit."
+      : "Eerst twee basisvragen: je praktijkcapaciteit en je conventiestatus (bepaalt met welk tarief we in de forecast rekenen).";
+    botSay("We starten de quick scan voor jouw " + SECTORS[key].name.toLowerCase() + "praktijk. " + basisvraagIntro + " Dan een kort blok over hoe je praktijk vandaag écht draait — telefonie, IT, bezetting, betalingen — zodat we meteen goed zicht hebben op je dagelijkse realiteit. Daarna nog 21 vragen verdeeld over 5 aandachtsgebieden: naast de operationele cijfers ook enkele strategische vragen over je businessmodel, en je eigen leiderschap en veerkracht als praktijkhouder. Percentages berekenen we automatisch voor je op basis van de aantallen die je invult.");
     setTimeout(askNext, 400);
   }
 
@@ -942,6 +1004,7 @@
     currentSector = saved.sector;
     answers = saved.answers || {};
     flatQuestions = buildFlatQuestions(saved.sector);
+    syncConventiestatusQuestion(); // Taak #386 — herstel de eventueel al ingevoegde eigen-tarief-vraag
     syncPijnpuntQuestions(); // Taak #373 — herstel de eventueel al ingevoegde 2 verdiepingsvragen
     qIndex = Math.min(saved.qIndex || 0, flatQuestions.length);
 
@@ -1096,6 +1159,12 @@
     }
     setQuickReplies([]);
     answers[q.key] = result.value;
+
+    // Taak #385/#386 — net na het conventiestatus-antwoord, zodat de eventuele eigen-tarief-vraag
+    // al in flatQuestions zit tegen de tijd dat askNext() de volgende vraag opvraagt.
+    if (q.key === "ppConventiestatus" && syncConventiestatusQuestion()) {
+      await botSay("Nog even je eigen tarief tijdens de niet-geconventioneerde uren, dan rekenen we preciezer dan met het sectorgemiddelde.", 200);
+    }
 
     // Taak #373 — "2e laag": net na het pijnpunt-antwoord, vóór de contradictiecheck/qIndex++
     // hieronder, zodat de 2 eventuele extra vragen al in flatQuestions zitten tegen de tijd dat
@@ -1824,18 +1893,6 @@
             '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppModelType" value="solo" checked> Solo</label>' +
             '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppModelType" value="groep"> Groepspraktijk</label>' +
           '</div>' +
-          '<div style="margin-bottom:8px;">' +
-            '<div style="font-size:11.5px;color:#667;margin-bottom:4px;">Conventiestatus (bepaalt met welk tarief we rekenen)</div>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
-              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="geconventioneerd" checked> Geconventioneerd</label>' +
-              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="niet-toegetreden"> Niet-toegetreden</label>' +
-              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="gedeeltelijk"> Gedeeltelijk</label>' +
-              '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;"><input type="radio" name="ppConventiestatus" value="gemengd"> Gemengd (team met beide statussen)</label>' +
-            '</div>' +
-            '<div id="ppEigenTariefWrap" style="display:none;margin-top:6px;">' +
-              '<input type="number" min="0" step="0.01" id="ppEigenTarief" placeholder="Je eigen tarief per sessie/consult (€)" title="Enkel van toepassing als niet-toegetreden of gemengd — anders rekenen we met het RIZIV/sectorgemiddelde tarief." style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
-            '</div>' +
-          '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
             '<input type="number" min="0" step="0.1" id="ppVte" placeholder="VTE behandelaars" style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
             '<input type="number" min="0" step="1" id="ppAantalTherapeuten" placeholder="Aantal therapeuten (headcount)" title="Los van VTE — bv. 2 halftijdse therapeuten = VTE 1.0 maar aantal 2." style="padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:12.5px;">' +
@@ -1892,18 +1949,6 @@
       radio.addEventListener("change", () => {
         const addonPrice = QA_ADDON_PRICES_JS[radio.value] || 0;
         totalPriceEl.textContent = basePrice + addonPrice;
-      });
-    });
-
-    // Eigen-tarief-veld enkel tonen/relevant bij "niet-toegetreden" of "gemengd" (taak #270/#271,
-    // Fase0-§7.1) — bij geconventioneerd of gedeeltelijk rekent de motor sowieso met het
-    // RIZIV/sectorgemiddelde tarief (zie main.py _sector_tarief), dus het veld zou daar enkel
-    // verwarren. Let op: zelfs bij "niet-toegetreden"/"gemengd" wint een ingevulde gerealiseerde
-    // omzet (hieronder) altijd van dit vlakke tarief — zie de tier-volgorde in _sector_tarief.
-    const ppEigenTariefWrap = document.getElementById("ppEigenTariefWrap");
-    confirmEl.querySelectorAll('input[name="ppConventiestatus"]').forEach((radio) => {
-      radio.addEventListener("change", () => {
-        ppEigenTariefWrap.style.display = (radio.value === "niet-toegetreden" || radio.value === "gemengd") ? "block" : "none";
       });
     });
 
@@ -2016,25 +2061,30 @@
     // leeg profiel stuurt gewoon null-velden mee, de backend degradeert dan gracieus naar enkel
     // Universal- + Sector-tier KPI's (zie PracticeProfile/get_active_kpis in main.py).
     const ppModelTypeEl = document.querySelector('input[name="ppModelType"]:checked');
-    const ppConventiestatusEl = document.querySelector('input[name="ppConventiestatus"]:checked');
     const ppVteEl = document.getElementById("ppVte");
     const ppAantalTherapeutenEl = document.getElementById("ppAantalTherapeuten");
     const ppLocatiesEl = document.getElementById("ppLocaties");
     const ppBehandelruimtesEl = document.getElementById("ppBehandelruimtes");
     const ppOndersteunendEl = document.getElementById("ppOndersteunend");
     const ppBeschikbareSlotsEl = document.getElementById("ppBeschikbareSlots");
-    const ppEigenTariefEl = document.getElementById("ppEigenTarief");
     const ppOmzetPeriodeEl = document.getElementById("ppOmzetPeriode");
     const ppVolumePeriodeEl = document.getElementById("ppVolumePeriode");
     const ppMeetperiodeWekenEl = document.getElementById("ppMeetperiodeWeken");
     const toNumOrNull = (el) => (el && el.value !== "" ? Number(el.value) : null);
-    // Eigen tarief wordt bewust enkel meegestuurd bij "niet-toegetreden"/"gemengd" — bij een andere
-    // conventiestatus negeert de backend het toch (zie main.py _sector_tarief), maar zo blijft
-    // ook het datamodel zelf eerlijk over wanneer dit veld effectief betekenis heeft. Gerealiseerde
-    // omzet/volume/meetperiode (taak #270/#271, Fase0-§7.1/§7.2) sturen we altijd mee als ingevuld —
-    // die tier-1-data heeft sowieso voorrang in _sector_tarief, ongeacht conventiestatus.
-    const conventiestatusValue = (ppConventiestatusEl && ppConventiestatusEl.value) || null;
-    const eigenTariefRelevant = conventiestatusValue === "niet-toegetreden" || conventiestatusValue === "gemengd";
+    // Taak #386/#387 — conventiestatus/eigen_tarief komen niet langer uit dit optionele blok (de
+    // radio-knoppen + #ppEigenTariefWrap zijn verwijderd), maar uit de verplichte hoofdflow-vragen
+    // ppConventiestatus/ppEigenTarief in `answers` (zie buildFlatQuestions/
+    // syncConventiestatusQuestion hierboven). CONVENTIESTATUS_CODE_MAP vertaalt de leesbare
+    // knoptekst naar dezelfde 4 backend-codes als voorheen. Voor dierenarts (geen
+    // RIZIV/mutualiteiten-conventiesysteem) is de vraag nooit gesteld, dus blijft
+    // conventiestatusValue gewoon null — de backend rekent dan met het markttarief (zie
+    // _sector_tarief in main.py). Taak #385 breidde "eigen tarief telt mee" uit naar ook
+    // "gedeeltelijk", niet enkel "niet-toegetreden"/"gemengd". Gerealiseerde omzet/volume/
+    // meetperiode (taak #270/#271, Fase0-§7.1/§7.2) blijven wél in dit optionele blok — die
+    // tier-1-data heeft sowieso voorrang in _sector_tarief, ongeacht conventiestatus.
+    const conventiestatusValue = CONVENTIESTATUS_CODE_MAP[answers.ppConventiestatus] || null;
+    const eigenTariefRelevant = conventiestatusValue === "niet-toegetreden" || conventiestatusValue === "gedeeltelijk" || conventiestatusValue === "gemengd";
+    const eigenTariefValue = (eigenTariefRelevant && answers.ppEigenTarief !== undefined && answers.ppEigenTarief !== "") ? Number(answers.ppEigenTarief) : null;
     const practiceProfile = {
       model_type: (ppModelTypeEl && ppModelTypeEl.value) || null,
       vte: toNumOrNull(ppVteEl),
@@ -2043,7 +2093,7 @@
       behandelruimtes: toNumOrNull(ppBehandelruimtesEl),
       ondersteunend_personeel_vte: toNumOrNull(ppOndersteunendEl),
       conventiestatus: conventiestatusValue,
-      eigen_tarief: eigenTariefRelevant ? toNumOrNull(ppEigenTariefEl) : null,
+      eigen_tarief: eigenTariefValue,
       gerealiseerde_omzet_periode: toNumOrNull(ppOmzetPeriodeEl),
       uitgevoerd_behandelvolume: toNumOrNull(ppVolumePeriodeEl),
       meetperiode_weken: toNumOrNull(ppMeetperiodeWekenEl),
