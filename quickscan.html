@@ -401,7 +401,7 @@
   // AI-Q&A-add-on — spiegelt QA_ADDON_DAYS/QA_ADDON_PRICES in de backend (main.py). Enkel voor de
   // live prijsweergave hier in de checkout; de backend rekent en int het echte bedrag (zelfde
   // "frontend toont, backend int"-principe als bij PATH_PRICES in de backend).
-  const PATH_BASE_PRICES = { digital: 25, consult: 650, toolkit: 1495 };
+  const PATH_BASE_PRICES = { digital: 25 };
   const QA_ADDON_PRICES_JS = { "": 0, "4weken": 15, "8weken": 25 };
   const QA_ADDON_LABELS_JS = { "4weken": "4 weken toegang tot de AI-adviseur", "8weken": "8 weken toegang, tot je herscan" };
 
@@ -1689,24 +1689,16 @@
         '<div class="next-steps">' +
           '<h3>Hoe wil je hiermee verder?</h3>' +
           '<div class="sub">Kies wat het best past — je kan later altijd wisselen.</div>' +
-          '<div class="path-anchor">Ter vergelijking: persoonlijke praktijkbegeleiding bij externe consultants kost doorgaans €755 – €2.950 voor een gelijkaardig traject.</div>' +
           '<div class="path-grid">' +
             '<div class="path-card recommended">' +
-              '<div class="path-tag">Persoonlijke begeleiding</div>' +
-              '<h4>Begeleidingstraject</h4>' +
-              '<p>3 sessies van 1,5u met een Zenpertise-adviseur, op maat van jouw scanresultaat. Directe opvolging en bijsturing op wat blijkt vast te lopen.</p>' +
-              '<div class="price">€650 (3 sessies)</div>' +
-              '<div class="guarantee">Niet tevreden na sessie 1? Volledige terugbetaling.</div>' +
-              '<button data-path="consult">Consult aanvragen</button>' +
-            '</div>' +
-            '<div class="path-card secondary">' +
               '<div class="path-tag">Volledig digitaal</div>' +
               '<h4>Zelfstandig, met herscan</h4>' +
               '<p>Je gaat zelf aan de slag met de verbeterpunten. Na 8 weken sturen we automatisch een nieuwe scan zodat je vooruitgang zichtbaar wordt.</p>' +
               '<div class="price">€25 (herscan inbegrepen)</div>' +
-              '<button data-path="digital">Kies digitaal + herscan</button>' +
+              '<button data-path="digital">Ontgrendel het volledige rapport</button>' +
             '</div>' +
           '</div>' +
+          '<div class="price-note" style="margin-top:12px;">Loop je ergens vast of wil je hulp bij de uitvoering? Neem dan contact op via <a href="mailto:info@danyuzen.com">info@danyuzen.com</a> voor consulting.</div>' +
           '<div id="pathConfirm"></div>' +
           financeUploadHtml +
           aiQaHtml +
